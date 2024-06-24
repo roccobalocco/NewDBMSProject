@@ -9,15 +9,16 @@ csv_links = [
     'https://docs.google.com/spreadsheets/d/e/2PACX-1vTv7gcQLasDnekrUCghc71U_qhJ8LldrBZ7BgUgR8djly9NGLNp3qoLITMm1VfnyxfWeL8vngXsj8ue/pub?gid=766734284&single=true&output=csv', # terminals 
 ]
 
-# conn.import_csv(csv_links[0], neo.FileType.CUSTOMERS)
-# conn.import_csv(csv_links[1], neo.FileType.TERMINALS)
+conn.import_csv(csv_links[0], neo.FileType.CUSTOMERS)
+conn.import_csv(csv_links[1], neo.FileType.TERMINALS)
 
 def file_opener(file_name):
     with open(file_name, 'r') as file:
         lines = file.readlines()[1:]  # Discard the first line (header)
+        create_statement = ''
         for line in lines:
             columns = line.split(',')
-            create_statement = f"""
+            create_statement += f"""
             CREATE (:Transaction {{
             TRANSACTION_ID: '{columns[0]}',
             TX_DATETIME: '{columns[1]}',
@@ -30,8 +31,9 @@ def file_opener(file_name):
             TX_FRAUD_SCENARIO: '{columns[8]}'
             }})
             """
-            conn.free_query(create_statement)
+        conn.free_query(create_statement)
 
+# Do not try at home, the free tier will explode, only the first of my seven files will reach the node limit!
 threads = []
 for i in range(1, 7):
     file_path = '../simulated-data-raw-200mb/transactions' + str(i) + '.csv'
@@ -41,7 +43,6 @@ for i in range(1, 7):
 
 for thread in threads:
     thread.join()
-
 
 
 conn.close()
