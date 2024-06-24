@@ -1,11 +1,16 @@
+from pandas import DataFrame
 from add_frauds import add_frauds
 from generate_dataset import generate_dataset
 import os
 import datetime
 
+def create_dir(dirname: str):
+    if not os.path.exists(dirname):
+        os.makedirs(dirname)
+    
 # 5000 10000 183 are, more or less, 100mb of data
 
-args_num:dict = {0: [2500, 5000, 92], 1: [5000, 10000, 183], 2: [10000, 20000, 365]}
+args_num:dict = {0: [5000, 8500, 92], 1: [6000, 11000, 183], 2: [8000, 15000, 365]}
 
 for key, value in args_num.items():
     # Generare dataset for the three tables
@@ -28,17 +33,15 @@ for key, value in args_num.items():
     else: 
         DIR_OUTPUT += '-200mb/'
 
-    if not os.path.exists(DIR_OUTPUT):
-        os.makedirs(DIR_OUTPUT)
+    create_dir(DIR_OUTPUT)
 
     start_date = datetime.datetime.strptime("2018-04-01", "%Y-%m-%d")
 
-    for day in range(transactions_df.TX_TIME_DAYS.max()+1):
-        
-        transactions_day = transactions_df[transactions_df.TX_TIME_DAYS==day].sort_values('TX_TIME_SECONDS')
-        
-        date = start_date + datetime.timedelta(days=day)
-        filename_output = date.strftime("%Y-%m-%d")+'.pkl'
-        
-        # Protocol=4 required for Google Colab
-        transactions_day.to_pickle(DIR_OUTPUT+filename_output, protocol=4)
+    # saving customers
+    customer_profiles_table.to_pickle(DIR_OUTPUT + '/customers.pkl', protocol=4)
+    
+    # saving terminals   
+    terminal_profiles_table.to_pickle(DIR_OUTPUT + '/terminals.pkl', protocol=4)
+
+    # saving transactions:
+    transactions_df.to_pickle(DIR_OUTPUT + '/transactions.pkl', protocol=4)
