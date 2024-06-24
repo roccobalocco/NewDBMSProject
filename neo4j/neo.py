@@ -21,36 +21,54 @@ class Neo:
         print('Closing connection with neo4j')
         self.driver.close()
 
-    def print_greeting(self, message):
+    def free_query(self, query):
         with self.driver.session() as session:
-            greeting = session.execute_write(self._create_and_return_greeting, message)
-            print(greeting)
+            session.execute_write(self._free_query, query)
 
-    def import_csv(self, filepath:str):
+    def import_csv(self, filepath:str, fileType: FileType):
+        create_statement = ''
+        print('filetype:', FileType(fileType), fileType)
+        match fileType:
+            case FileType.CUSTOMERS:
+                create_statement = """
+                CREATE (:Customer {
+                    CUSTOMER_ID: line.CUSTOMER_ID,
+                    x_customer_id: line.x_customer_id,
+                    y_customer_id: line.y_customer_id,
+                    mean_amount: toFloat(line.mean_amount),
+                    std_amount: toFloat(line.std_amount),
+                    mean_nb_tx_per_day: toFloat(line.mean_nb_tx_per_day),
+                    available_terminals: line.available_terminals,
+                    nb_terminals: toInteger(line.nb_terminals)
+                })
+                """
+            case FileType.TERMINALS:
+                create_statement = """
+                CREATE (:Terminal {
+                    TERMINAL_ID: line.TERMINAL_ID,
+                    x_terminal_id: line.x_terminal_id,
+                    y_terminal_id: line.y_terminal_id
+                })
+                """
+            case _:
+                raise ValueError('Invalid file type')
         with self.driver.session() as session:
-            session.execute_write(self._import_csv, filepath)
+            session.execute_write(self._import_csv, filepath, create_statement)
 
     @staticmethod
-    def _import_csv(tx, filepath:str, case: FileType):
+    def _import_csv(tx, filepath:str, create_statement:str):
         query = f"""
         LOAD CSV WITH HEADERS FROM '{filepath}' AS line
-        CREATE (:YourNodeLabel {{property1: line.column1, property2: line.column2}})
+        {create_statement}
         """
+        print(f"Executing query: {query}")  # Print the query for debugging
         tx.run(query)
         
         
     @staticmethod
-    def _create_and_return_greeting(tx, message):
-        result = tx.run("CREATE (a:Greeting) "
-                        "SET a.message = $message "
-                        "RETURN a.message + ', from node ' + id(a)", message=message)
-        return result.single()[0]
-
-# customers -> https://drive.google.com/file/d/10aYf0TUOH0kZs45rx1p-mJe6gQnTmbDG/view?usp=sharing
-# terminals -> https://drive.google.com/file/d/18yd8H0Z1IjGEt-2LiWt0jzoReZ8Q0Sew/view?usp=sharing
-# transactions -> https://drive.google.com/file/d/1Vdo7ev5UvPJ-NPGYyuLGBeGgLsQJ8bQg/view?usp=sharing
+    def _free_query(tx, query):
+        tx.run(query)
 
 if __name__ == "__main__":
     greeter = Neo()
-    greeter.print_greeting("hello, world")
     greeter.close()
