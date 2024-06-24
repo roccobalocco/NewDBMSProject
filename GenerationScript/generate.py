@@ -38,10 +38,10 @@ for key, value in args_num.items():
     start_date = datetime.datetime.strptime("2018-04-01", "%Y-%m-%d")
 
     # saving customers
-    customer_profiles_table.to_pickle(DIR_OUTPUT + '/customers.pkl', protocol=4)
+    customer_profiles_table.to_csv(DIR_OUTPUT + '/customers.csv', sep=',', encoding='utf-8')
     
     # saving terminals   
-    terminal_profiles_table.to_pickle(DIR_OUTPUT + '/terminals.pkl', protocol=4)
+    terminal_profiles_table.to_csv(DIR_OUTPUT + '/terminals.csv', sep=',', encoding='utf-8')
 
     # saving transactions:
-    transactions_df.to_pickle(DIR_OUTPUT + '/transactions.pkl', protocol=4)
+    transactions_df.to_csv(DIR_OUTPUT + '/transactions.csv', sep=',', encoding='utf-8')

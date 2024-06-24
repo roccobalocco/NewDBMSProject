@@ -16,4 +16,6 @@ transactions_df = add_frauds(customer_profiles_table, terminal_profiles_table, t
 
 print(customer_profiles_table.head())
 print(terminal_profiles_table.head())
+
+transactions_df = transactions_df.sort_values("TX_FRAUD", ascending=False)  # Fix: Use sort_values() instead of sort_value()
 print(transactions_df.head())
