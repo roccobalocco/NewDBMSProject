@@ -5,44 +5,48 @@ import threading
 conn = neo.Neo()
 
 csv_links = [
-    'https://docs.google.com/spreadsheets/d/e/2PACX-1vRHRb0m35byJhbv_Q_50Eg9rFc32pXSTWGkr22LWZkUO3FecP1yd0R7RI6JbTbcaYnJVhFII8iqpXcQ/pub?gid=1503518093&single=true&output=csv', # customers 
-    'https://docs.google.com/spreadsheets/d/e/2PACX-1vTv7gcQLasDnekrUCghc71U_qhJ8LldrBZ7BgUgR8djly9NGLNp3qoLITMm1VfnyxfWeL8vngXsj8ue/pub?gid=766734284&single=true&output=csv', # terminals 
+    'https://docs.google.com/spreadsheets/d/e/2PACX-1vQL2bzUZly1hPp8WJx9RNAWOz-wrK7VfZ3I_mC72T-Ui7gUeHir956EYAM6JH_2-iRq1S-U4_W_-pwZ/pub?gid=2006922834&single=true&output=csv', # customers 
+    'https://docs.google.com/spreadsheets/d/e/2PACX-1vTaZNCMx2Jl4yYOqfLwAHUf2LXCTGKN6MLMufpNNPw-1BEBizFvh22c8t_LkmeIy6dtFE-Nj38jJSHz/pub?gid=2106011748&single=true&output=csv', # terminals 
 ]
 
-conn.import_csv(csv_links[0], neo.FileType.CUSTOMERS)
-conn.import_csv(csv_links[1], neo.FileType.TERMINALS)
+#conn.import_csv(csv_links[0], neo.FileType.CUSTOMERS)
+#conn.import_csv(csv_links[1], neo.FileType.TERMINALS)
 
 def file_opener(file_name):
     with open(file_name, 'r') as file:
-        lines = file.readlines()[1:]  # Discard the first line (header)
-        create_statement = ''
-        for line in lines:
-            columns = line.split(',')
-            create_statement += f"""
-            CREATE (:Transaction {{
-            TRANSACTION_ID: '{columns[0]}',
-            TX_DATETIME: '{columns[1]}',
-            CUSTOMER_ID: '{columns[2]}',
-            TERMINAL_ID: '{columns[3]}',
-            TX_AMOUNT: toFloat({columns[4]}),
-            TX_TIME_SECONDS: toInteger({columns[5]}),
-            TX_TIME_DAYS: toInteger({columns[6]}),
-            TX_FRAUD: '{columns[7]}',
-            TX_FRAUD_SCENARIO: '{columns[8]}'
-            }})
-            """
-        conn.free_query(create_statement)
-
+        try:
+            lines = file.readlines()[1:200000]  # Discard the first line (header) and limit the number of lines due to the free tier!
+            create_statement = ''
+            print('Starting to read the line of {file}, preparing {numRel} relationships'.format(file=file_name, numRel=len(lines)))
+            for line in lines:
+                columns = line.split(',')
+                create_statement += f"""
+                MATCH (cc:Customer {{CUSTOMER_ID: '{columns[3]}'}}), (tt:Terminal {{TERMINAL_ID: '{columns[4]}'}})
+                CREATE (cc) -[tr:Transaction {{
+                    TRANSACTION_ID: '{columns[1]}',
+                    TX_DATETIME: '{columns[2]}',
+                    TX_AMOUNT: toFloat({columns[5]}),
+                    TX_TIME_SECONDS: toInteger({columns[6]}),
+                    TX_TIME_DAYS: toInteger({columns[7]}),
+                    TX_FRAUD: '{columns[8]}',
+                    TX_FRAUD_SCENARIO: '{columns[9]}'
+                    }}]-> (tt)
+                return tr;
+                """
+            conn.free_query(create_statement)
+        except:
+            print('You have finished the free tier :/, maybe')
 # Do not try at home, the free tier will explode, only the first of my seven files will reach the node limit!
-threads = []
-for i in range(1, 7):
-    file_path = '../simulated-data-raw-200mb/transactions' + str(i) + '.csv'
-    thread = threading.Thread(target=file_opener, args=(file_path,))
-    threads.append(thread)
-    thread.start()
+# threads = []
+# for i in range(1, 7):
+#     file_path = '../simulated-data-raw-200mb/transactions' + str(i) + '.csv'
+#     thread = threading.Thread(target=file_opener, args=(file_path,))
+#     threads.append(thread)
+#     thread.start()
 
-for thread in threads:
-    thread.join()
+# for thread in threads:
+#     thread.join()
 
+file_opener('../simulated-data-raw-50mb/transactions.csv')
 
 conn.close()
