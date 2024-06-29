@@ -1,0 +1,391 @@
+[
+    {
+        "label": "random",
+        "kind": 6,
+        "isExtraImport": true,
+        "importPath": "random",
+        "description": "random",
+        "detail": "random",
+        "documentation": {}
+    },
+    {
+        "label": "pandas",
+        "kind": 6,
+        "isExtraImport": true,
+        "importPath": "pandas",
+        "description": "pandas",
+        "detail": "pandas",
+        "documentation": {}
+    },
+    {
+        "label": "DataFrame",
+        "importPath": "pandas",
+        "description": "pandas",
+        "isExtraImport": true,
+        "detail": "pandas",
+        "documentation": {}
+    },
+    {
+        "label": "add_frauds",
+        "importPath": "add_frauds",
+        "description": "add_frauds",
+        "isExtraImport": true,
+        "detail": "add_frauds",
+        "documentation": {}
+    },
+    {
+        "label": "add_frauds",
+        "importPath": "add_frauds",
+        "description": "add_frauds",
+        "isExtraImport": true,
+        "detail": "add_frauds",
+        "documentation": {}
+    },
+    {
+        "label": "generate_dataset",
+        "importPath": "generate_dataset",
+        "description": "generate_dataset",
+        "isExtraImport": true,
+        "detail": "generate_dataset",
+        "documentation": {}
+    },
+    {
+        "label": "generate_dataset",
+        "importPath": "generate_dataset",
+        "description": "generate_dataset",
+        "isExtraImport": true,
+        "detail": "generate_dataset",
+        "documentation": {}
+    },
+    {
+        "label": "os",
+        "kind": 6,
+        "isExtraImport": true,
+        "importPath": "os",
+        "description": "os",
+        "detail": "os",
+        "documentation": {}
+    },
+    {
+        "label": "datetime",
+        "kind": 6,
+        "isExtraImport": true,
+        "importPath": "datetime",
+        "description": "datetime",
+        "detail": "datetime",
+        "documentation": {}
+    },
+    {
+        "label": "date",
+        "importPath": "datetime",
+        "description": "datetime",
+        "isExtraImport": true,
+        "detail": "datetime",
+        "documentation": {}
+    },
+    {
+        "label": "datetime",
+        "importPath": "datetime",
+        "description": "datetime",
+        "isExtraImport": true,
+        "detail": "datetime",
+        "documentation": {}
+    },
+    {
+        "label": "csv",
+        "kind": 6,
+        "isExtraImport": true,
+        "importPath": "csv",
+        "description": "csv",
+        "detail": "csv",
+        "documentation": {}
+    },
+    {
+        "label": "numpy",
+        "kind": 6,
+        "isExtraImport": true,
+        "importPath": "numpy",
+        "description": "numpy",
+        "detail": "numpy",
+        "documentation": {}
+    },
+    {
+        "label": "time",
+        "kind": 6,
+        "isExtraImport": true,
+        "importPath": "time",
+        "description": "time",
+        "detail": "time",
+        "documentation": {}
+    },
+    {
+        "label": "generate_customer_profiles_table",
+        "importPath": "generate_customer_profiles_table",
+        "description": "generate_customer_profiles_table",
+        "isExtraImport": true,
+        "detail": "generate_customer_profiles_table",
+        "documentation": {}
+    },
+    {
+        "label": "generate_terminal_profiles_table",
+        "importPath": "generate_terminal_profiles_table",
+        "description": "generate_terminal_profiles_table",
+        "isExtraImport": true,
+        "detail": "generate_terminal_profiles_table",
+        "documentation": {}
+    },
+    {
+        "label": "get_list_terminals_within_radius",
+        "importPath": "get_list_terminals_with_radius",
+        "description": "get_list_terminals_with_radius",
+        "isExtraImport": true,
+        "detail": "get_list_terminals_with_radius",
+        "documentation": {}
+    },
+    {
+        "label": "generate_transactions_table",
+        "importPath": "generate_transactions",
+        "description": "generate_transactions",
+        "isExtraImport": true,
+        "detail": "generate_transactions",
+        "documentation": {}
+    },
+    {
+        "label": "neo",
+        "kind": 6,
+        "isExtraImport": true,
+        "importPath": "neo",
+        "description": "neo",
+        "detail": "neo",
+        "documentation": {}
+    },
+    {
+        "label": "threading",
+        "kind": 6,
+        "isExtraImport": true,
+        "importPath": "threading",
+        "description": "threading",
+        "detail": "threading",
+        "documentation": {}
+    },
+    {
+        "label": "GraphDatabase",
+        "importPath": "neo4j",
+        "description": "neo4j",
+        "isExtraImport": true,
+        "detail": "neo4j",
+        "documentation": {}
+    },
+    {
+        "label": "Customer",
+        "importPath": "objects",
+        "description": "objects",
+        "isExtraImport": true,
+        "detail": "objects",
+        "documentation": {}
+    },
+    {
+        "label": "FileType",
+        "importPath": "objects",
+        "description": "objects",
+        "isExtraImport": true,
+        "detail": "objects",
+        "documentation": {}
+    },
+    {
+        "label": "Transaction",
+        "importPath": "objects",
+        "description": "objects",
+        "isExtraImport": true,
+        "detail": "objects",
+        "documentation": {}
+    },
+    {
+        "label": "Enum",
+        "importPath": "enum",
+        "description": "enum",
+        "isExtraImport": true,
+        "detail": "enum",
+        "documentation": {}
+    },
+    {
+        "label": "add_frauds",
+        "kind": 2,
+        "importPath": "GenerationScript.add_frauds",
+        "description": "GenerationScript.add_frauds",
+        "peekOfCode": "def add_frauds(customer_profiles_table, terminal_profiles_table, transactions_df):\n    # By default, all transactions are genuine\n    transactions_df['TX_FRAUD']=0\n    transactions_df['TX_FRAUD_SCENARIO']=0\n    # Scenario 1\n    transactions_df.loc[transactions_df.TX_AMOUNT>220, 'TX_FRAUD']=1\n    transactions_df.loc[transactions_df.TX_AMOUNT>220, 'TX_FRAUD_SCENARIO']=1\n    nb_frauds_scenario_1=transactions_df.TX_FRAUD.sum()\n    print(\"Number of frauds from scenario 1: \"+str(nb_frauds_scenario_1))\n    # Scenario 2",
+        "detail": "GenerationScript.add_frauds",
+        "documentation": {}
+    },
+    {
+        "label": "create_dir",
+        "kind": 2,
+        "importPath": "GenerationScript.generate",
+        "description": "GenerationScript.generate",
+        "peekOfCode": "def create_dir(dirname: str):\n    if not os.path.exists(dirname):\n        os.makedirs(dirname)\ndef clean_csv(filepath: str):\n    with open(filepath, 'r') as file:\n        lines = file.readlines()\n    data = [line.strip().split(',')[1:] for line in lines]\n    # dopo e' necessario rimuovere alcune imperfezioni sulla lista dei terminali\n    # Write the cleaned data to a new file\n    with open(filepath, 'w', newline='') as file:",
+        "detail": "GenerationScript.generate",
+        "documentation": {}
+    },
+    {
+        "label": "clean_csv",
+        "kind": 2,
+        "importPath": "GenerationScript.generate",
+        "description": "GenerationScript.generate",
+        "peekOfCode": "def clean_csv(filepath: str):\n    with open(filepath, 'r') as file:\n        lines = file.readlines()\n    data = [line.strip().split(',')[1:] for line in lines]\n    # dopo e' necessario rimuovere alcune imperfezioni sulla lista dei terminali\n    # Write the cleaned data to a new file\n    with open(filepath, 'w', newline='') as file:\n        writer = csv.writer(file)\n        writer.writerows(data)\n# 5000 10000 183 are, more or less, 100mb of data",
+        "detail": "GenerationScript.generate",
+        "documentation": {}
+    },
+    {
+        "label": "args_num:dict",
+        "kind": 5,
+        "importPath": "GenerationScript.generate",
+        "description": "GenerationScript.generate",
+        "peekOfCode": "args_num:dict = {0: [1150, 100, 1095]}#, 1: [2300, 200, 1095], 2: [6300, 800, 1095]}\nfor key, value in args_num.items():\n    # Generare dataset for the three tables\n    (customer_profiles_table, terminal_profiles_table, transactions_df)=\\\n        generate_dataset(n_customers = value[0], \n                        n_terminals = value[1], \n                        nb_days= value[2], \n                        start_date=\"2018-04-01\", \n                        r=5)\n    # Add frauds to transactions",
+        "detail": "GenerationScript.generate",
+        "documentation": {}
+    },
+    {
+        "label": "generate_customer_profiles_table",
+        "kind": 2,
+        "importPath": "GenerationScript.generate_customer_profiles_table",
+        "description": "GenerationScript.generate_customer_profiles_table",
+        "peekOfCode": "def generate_customer_profiles_table(n_customers, random_state=0):\n    np.random.seed(random_state)\n    customer_id_properties=[]\n    # Generate customer properties from random distributions \n    for customer_id in range(n_customers):\n        x_customer_id = np.random.uniform(0,100)\n        y_customer_id = np.random.uniform(0,100)\n        mean_amount = np.random.uniform(5,100) # Arbitrary (but sensible) value \n        std_amount = mean_amount/2 # Arbitrary (but sensible) value\n        mean_nb_tx_per_day = np.random.uniform(0,4) # Arbitrary (but sensible) value ",
+        "detail": "GenerationScript.generate_customer_profiles_table",
+        "documentation": {}
+    },
+    {
+        "label": "generate_dataset",
+        "kind": 2,
+        "importPath": "GenerationScript.generate_dataset",
+        "description": "GenerationScript.generate_dataset",
+        "peekOfCode": "def generate_dataset(n_customers = 10000, n_terminals = 1000000, nb_days=90, start_date=\"2018-04-01\", r=5):\n    start_time=time.time()\n    customer_profiles_table = generate_customer_profiles_table(n_customers, random_state = 0)\n    print(\"Time to generate customer profiles table: {0:.2}s\".format(time.time()-start_time))\n    start_time=time.time()\n    terminal_profiles_table = generate_terminal_profiles_table(n_terminals, random_state = 1)\n    print(\"Time to generate terminal profiles table: {0:.2}s\".format(time.time()-start_time))\n    start_time=time.time()\n    x_y_terminals = terminal_profiles_table[['x_terminal_id','y_terminal_id']].values.astype(float)\n    customer_profiles_table['available_terminals'] = customer_profiles_table.apply(lambda x : get_list_terminals_within_radius(x, x_y_terminals=x_y_terminals, r=r), axis=1)",
+        "detail": "GenerationScript.generate_dataset",
+        "documentation": {}
+    },
+    {
+        "label": "generate_terminal_profiles_table",
+        "kind": 2,
+        "importPath": "GenerationScript.generate_terminal_profiles_table",
+        "description": "GenerationScript.generate_terminal_profiles_table",
+        "peekOfCode": "def generate_terminal_profiles_table(n_terminals, random_state=0):\n    np.random.seed(random_state)\n    terminal_id_properties=[]\n    # Generate terminal properties from random distributions \n    for terminal_id in range(n_terminals):\n        x_terminal_id = np.random.uniform(0,100)\n        y_terminal_id = np.random.uniform(0,100)\n        terminal_id_properties.append([terminal_id,\n                                      x_terminal_id, y_terminal_id])\n    terminal_profiles_table = pd.DataFrame(terminal_id_properties, columns=['TERMINAL_ID',",
+        "detail": "GenerationScript.generate_terminal_profiles_table",
+        "documentation": {}
+    },
+    {
+        "label": "generate_transactions_table",
+        "kind": 2,
+        "importPath": "GenerationScript.generate_transactions",
+        "description": "GenerationScript.generate_transactions",
+        "peekOfCode": "def generate_transactions_table(customer_profile, start_date = \"2018-04-01\", nb_days = 10):\n    customer_transactions = []\n    random.seed(int(customer_profile.CUSTOMER_ID))\n    np.random.seed(int(customer_profile.CUSTOMER_ID))\n    # For all days\n    for day in range(nb_days):\n        # Random number of transactions for that day \n        nb_tx = np.random.poisson(customer_profile.mean_nb_tx_per_day)\n        # If nb_tx positive, let us generate transactions\n        if nb_tx>0:",
+        "detail": "GenerationScript.generate_transactions",
+        "documentation": {}
+    },
+    {
+        "label": "get_list_terminals_within_radius",
+        "kind": 2,
+        "importPath": "GenerationScript.get_list_terminals_with_radius",
+        "description": "GenerationScript.get_list_terminals_with_radius",
+        "peekOfCode": "def get_list_terminals_within_radius(customer_profile, x_y_terminals, r):\n    # Use numpy arrays in the following to speed up computations\n    # Location (x,y) of customer as numpy array\n    x_y_customer = customer_profile[['x_customer_id','y_customer_id']].values.astype(float)\n    # Squared difference in coordinates between customer and terminal locations\n    squared_diff_x_y = np.square(x_y_customer - x_y_terminals)\n    # Sum along rows and compute suared root to get distance\n    dist_x_y = np.sqrt(np.sum(squared_diff_x_y, axis=1))\n    # Get the indices of terminals which are at a distance less than r\n    available_terminals = list(np.where(dist_x_y<r)[0])",
+        "detail": "GenerationScript.get_list_terminals_with_radius",
+        "documentation": {}
+    },
+    {
+        "label": "transactions_df",
+        "kind": 5,
+        "importPath": "GenerationScript.viewSamples",
+        "description": "GenerationScript.viewSamples",
+        "peekOfCode": "transactions_df = add_frauds(customer_profiles_table, terminal_profiles_table, transactions_df)\nprint(customer_profiles_table.head())\nprint(terminal_profiles_table.head())\ntransactions_df = transactions_df.sort_values(\"TX_FRAUD\", ascending=False)  # Fix: Use sort_values() instead of sort_value()\nprint(transactions_df.head())",
+        "detail": "GenerationScript.viewSamples",
+        "documentation": {}
+    },
+    {
+        "label": "transactions_df",
+        "kind": 5,
+        "importPath": "GenerationScript.viewSamples",
+        "description": "GenerationScript.viewSamples",
+        "peekOfCode": "transactions_df = transactions_df.sort_values(\"TX_FRAUD\", ascending=False)  # Fix: Use sort_values() instead of sort_value()\nprint(transactions_df.head())",
+        "detail": "GenerationScript.viewSamples",
+        "documentation": {}
+    },
+    {
+        "label": "relationship_creator",
+        "kind": 2,
+        "importPath": "neo4j.import",
+        "description": "neo4j.import",
+        "peekOfCode": "def relationship_creator(rel_lines:list[str],i:int):\n    print(\"Starting thread {i}\".format(i=i))\n    matches = ''\n    creates = ''\n    for line in rel_lines:\n        columns = line.split(',')\n        statement = f\"\"\"\n        MATCH (cc:Customer {{CUSTOMER_ID: '{columns[2]}'}}), (tt:Terminal {{TERMINAL_ID: '{columns[3]}'}})\n        CREATE (cc) -[tr:Transaction {{\n            TRANSACTION_ID: '{columns[0]}',",
+        "detail": "neo4j.import",
+        "documentation": {}
+    },
+    {
+        "label": "file_opener",
+        "kind": 2,
+        "importPath": "neo4j.import",
+        "description": "neo4j.import",
+        "peekOfCode": "def file_opener(file_name):\n    with open(file_name, 'r') as file:\n        try:\n            lines = file.readlines()[1:200000]  # Discard the first line (header) and limit the number of lines due to the free tier!\n            create_statement = ''\n            print('Starting to read the line of {file}, preparing {numRel} relationships'.format(file=file_name, numRel=len(lines)))\n            list_splitter = [i * 4000 for i in range(1, 51)]\n            list_splitter.append(200000)\n            threads = []\n            for i in range(1, 51):",
+        "detail": "neo4j.import",
+        "documentation": {}
+    },
+    {
+        "label": "conn",
+        "kind": 5,
+        "importPath": "neo4j.import",
+        "description": "neo4j.import",
+        "peekOfCode": "conn = neo.Neo()\ncsv_links = [\n    'https://docs.google.com/spreadsheets/d/e/2PACX-1vQ_l00V8A5UuF548dJf238hYO2D7CAXLKh8tq1A9ZA0_N_3MdTo5wkVwY3cJM42MkbxhliyYkQlwvf6/pub?gid=1121667338&single=true&output=csv', # customers \n    'https://docs.google.com/spreadsheets/d/e/2PACX-1vR--1SpqbVMo4_18oRvVGtSgHBMnbQ_4i53QZrFUxYAVd9spQwe9m1jBs649mVG5_gav0q9PKZVrAdo/pub?gid=1649816939&single=true&output=csv', # terminals \n]\nconn.import_csv(csv_links[0], neo.FileType.CUSTOMERS)\nconn.import_csv(csv_links[1], neo.FileType.TERMINALS)\ndef relationship_creator(rel_lines:list[str],i:int):\n    print(\"Starting thread {i}\".format(i=i))\n    matches = ''",
+        "detail": "neo4j.import",
+        "documentation": {}
+    },
+    {
+        "label": "csv_links",
+        "kind": 5,
+        "importPath": "neo4j.import",
+        "description": "neo4j.import",
+        "peekOfCode": "csv_links = [\n    'https://docs.google.com/spreadsheets/d/e/2PACX-1vQ_l00V8A5UuF548dJf238hYO2D7CAXLKh8tq1A9ZA0_N_3MdTo5wkVwY3cJM42MkbxhliyYkQlwvf6/pub?gid=1121667338&single=true&output=csv', # customers \n    'https://docs.google.com/spreadsheets/d/e/2PACX-1vR--1SpqbVMo4_18oRvVGtSgHBMnbQ_4i53QZrFUxYAVd9spQwe9m1jBs649mVG5_gav0q9PKZVrAdo/pub?gid=1649816939&single=true&output=csv', # terminals \n]\nconn.import_csv(csv_links[0], neo.FileType.CUSTOMERS)\nconn.import_csv(csv_links[1], neo.FileType.TERMINALS)\ndef relationship_creator(rel_lines:list[str],i:int):\n    print(\"Starting thread {i}\".format(i=i))\n    matches = ''\n    creates = ''",
+        "detail": "neo4j.import",
+        "documentation": {}
+    },
+    {
+        "label": "Neo",
+        "kind": 6,
+        "importPath": "neo4j.neo",
+        "description": "neo4j.neo",
+        "peekOfCode": "class Neo:\n    def __init__(self):\n        try:\n            print('Trying to open a connection with neo4j')\n            self.driver = GraphDatabase.driver(os.environ['NEO_URI'], auth=(os.environ['NEO_USER'], os.environ['NEO_PSW']))\n            print('Connection with neo4j opened')\n        except:\n            print('Could not open connection with neo4j')\n    def close(self):\n        print('Closing connection with neo4j')",
+        "detail": "neo4j.neo",
+        "documentation": {}
+    },
+    {
+        "label": "FileType",
+        "kind": 6,
+        "importPath": "neo4j.objects",
+        "description": "neo4j.objects",
+        "peekOfCode": "class FileType(Enum):\n    CUSTOMERS = 0\n    TERMINALS = 1\n    TRANSACTIONS = 2\nclass Customer:\n    def __init__(self, line):\n        self.CUSTOMER_ID = line.CUSTOMER_ID\n        self.x_customer_id = line.x_customer_id\n        self.y_customer_id = line.y_customer_id\n        self.mean_amount = float(line.mean_amount)",
+        "detail": "neo4j.objects",
+        "documentation": {}
+    },
+    {
+        "label": "Customer",
+        "kind": 6,
+        "importPath": "neo4j.objects",
+        "description": "neo4j.objects",
+        "peekOfCode": "class Customer:\n    def __init__(self, line):\n        self.CUSTOMER_ID = line.CUSTOMER_ID\n        self.x_customer_id = line.x_customer_id\n        self.y_customer_id = line.y_customer_id\n        self.mean_amount = float(line.mean_amount)\n        self.std_amount = float(line.std_amount)\n        self.mean_nb_tx_per_day = float(line.mean_nb_tx_per_day)\n        self.available_terminals = line.available_terminals\n        self.nb_terminals = int(line.nb_terminals)",
+        "detail": "neo4j.objects",
+        "documentation": {}
+    },
+    {
+        "label": "Terminal",
+        "kind": 6,
+        "importPath": "neo4j.objects",
+        "description": "neo4j.objects",
+        "peekOfCode": "class Terminal:\n    class Terminal:\n        def __init__(self, line):\n            self.TERMINAL_ID = line.TERMINAL_ID\n            self.x_terminal_id = line.x_terminal_id\n            self.y_terminal_id = line.y_terminal_id\nclass Transaction:\n    def __init__(self, line):\n        self.TRANSACTION_ID = line[1]\n        self.TX_DATETIME = line[2]",
+        "detail": "neo4j.objects",
+        "documentation": {}
+    },
+    {
+        "label": "Transaction",
+        "kind": 6,
+        "importPath": "neo4j.objects",
+        "description": "neo4j.objects",
+        "peekOfCode": "class Transaction:\n    def __init__(self, line):\n        self.TRANSACTION_ID = line[1]\n        self.TX_DATETIME = line[2]\n        self.TX_AMOUNT = float(line[5])\n        self.TX_TIME_SECONDS = int(line[6])\n        self.TX_TIME_DAYS = int(line[7])\n        self.TX_FRAUD = line[8]\n        self.TX_FRAUD_SCENARIO = line[9]",
+        "detail": "neo4j.objects",
+        "documentation": {}
+    }
+]

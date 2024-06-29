@@ -75,7 +75,7 @@ class Neo:
         result = tx.run(query)
         return result.single()
     
-    # Start of operations (a) functions
+    # Start of operations (a) functions DONE
     def get_customer_under_average(self, dt_start: datetime, dt_end: datetime)-> list[Customer]:
         """ Get customer under average for spending amounts and frequency of spending between dt_start and dt_end, 
             by comparing them to the average of this period
@@ -162,25 +162,27 @@ class Neo:
         return float(avg_spending_frequency["avg_spending_frequency"])  # type: ignore
     # End of operations (a) functions
     
-    # Start of operations (b) functions
-    def get_fraudolent_transactions(self, terminal_id:int, dt_start:date, dt_end:date)-> list:
+    # Start of operations (b) functions DONE
+    def get_fraudolent_transactions(self, terminal_id:str, dt_start:date, dt_end:date)-> list:
         """ Get all the fraudolent transactions that have an import higher than 20% 
             of the maximal import of the transactions executed on the same terminal in the last month
             
             Returns:
-                A list of transactions that are considered fraudolent
+                A list of transactions that are considered fraudolent like this one:
+                `[{'fraudolent_transactions': [({}, 'Transaction', {}), ({}, 'Transaction', {})]}]`
         """
         maximal_import = self.get_terminal_max_import_last_month(terminal_id, dt_start, dt_end)
         maximal_import_20 = maximal_import + (maximal_import * 0.2)
         query = f"""
-        MATCH (:Terminal {{TERMINAL_ID: {terminal_id}}}) -[t:Transaction]- ()
+        MATCH (:Terminal {{TERMINAL_ID: '{terminal_id}'}}) -[t:Transaction]- ()
         WHERE t.TX_AMOUNT >= {maximal_import_20}
         RETURN collect(t) as fraudolent_transactions
         """
-        
+        print('get_fraudolent_transactions query:\n', query)
         fraudolent_transactions = self.free_query(query)
+        print(fraudolent_transactions)
         return fraudolent_transactions  # type: ignore
-    def get_terminal_max_import_last_month(self, terminal_id:int, dt_start:date, dt_end:date)-> float:
+    def get_terminal_max_import_last_month(self, terminal_id:str, dt_start:date, dt_end:date)-> float:
         """ Get the maximal import of the transactions executed on the terminal terminal_id in the last month
             
             Args:
@@ -192,15 +194,19 @@ class Neo:
                 A float representing the maximal import of the transactions executed on the terminal terminal_id in the last month
         """
         query = f"""
-        MATCH (t:Terminal {{TERMINAL_ID: {terminal_id}}}) -[tr:Transaction]-> (:Customer)
-        WHERE t.TX_DATETIME >= dt_start AND t.TX_DATETIME <= dt_end
+        MATCH (t:Terminal {{TERMINAL_ID: '{terminal_id}'}}) <-[tr:Transaction]- (:Customer)
+        WHERE 
+        datetime({{epochMillis: apoc.date.parse(tr.TX_DATETIME, 'ms', 'yyyy-MM-dd HH:mm:ss')}}) >= datetime({{epochMillis: apoc.date.parse('{dt_start}', 'ms', 'yyyy-MM-dd HH:mm:ss')}})
+        AND 
+        datetime({{epochMillis: apoc.date.parse(tr.TX_DATETIME, 'ms', 'yyyy-MM-dd HH:mm:ss')}}) <= datetime({{epochMillis: apoc.date.parse('{dt_end}', 'ms', 'yyyy-MM-dd HH:mm:ss')}})
         RETURN MAX(tr.TX_AMOUNT) as max_import
         """
         
-        maximal_import = self.free_query(query)
+        print('get_terminal_max_import_last_month query:\n', query)
+        maximal_import = self.free_query_single(query)
         if (maximal_import is None):
             return 0.
-        return float(maximal_import) # type: ignore
+        return float(maximal_import["max_import"]) # type: ignore
     # End of operations (b) functions
     
     # Start of operations (c) functions
@@ -348,7 +354,12 @@ class Neo:
 
 if __name__ == "__main__":
     greeter = Neo()
-    # This query show nothing as a result, but don't worry and have a look at the db
+    # This query shows nothing as a result, but don't worry and have a look at the db
     # There are a lot of costumer with small transactions number but large spending amount and viceversa, so....
     # greeter.get_customer_under_average(datetime(2019, 1, 1), datetime(2019, 2, 1))
+    
+    # This query shows up two fraudolent transaction on the terminal 5 in the period between 2019-01-01 and 2019-02-01!
+    # and both of them are marked as fraudolent in the field of the relationship
+    #greeter.get_fraudolent_transactions("5",datetime(2019, 1, 1), datetime(2019, 2, 1))
+    
     greeter.close()
