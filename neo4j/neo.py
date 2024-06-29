@@ -94,9 +94,9 @@ class Neo:
         print('avg_spending_amount:', avg_spending_amount, 'avg_spending_frequency:', avg_spending_frequency)
         query = f"""
         MATCH (c:Customer)  -[t:Transaction]-> (:Terminal)
-        WHERE datetime({{epochMillis: apoc.date.parse(t.TX_DATETIME, 'ms', 'yyyy-MM-dd HH:mm:ss')}}) >= '{dt_start}' 
+        WHERE datetime(t.TX_DATETIME) >= '{dt_start}' 
         AND 
-        datetime({{epochMillis: apoc.date.parse(t.TX_DATETIME, 'ms', 'yyyy-MM-dd HH:mm:ss')}}) <= '{dt_end}'
+        datetime(t.TX_DATETIME) <= '{dt_end}'
         WITH c, AVG(t.TX_AMOUNT) as avg_amount, COUNT(t) as nb_tx
         WHERE avg_amount < {avg_spending_amount} AND nb_tx < {avg_spending_frequency}
         RETURN collect(c) as customers
@@ -119,13 +119,13 @@ class Neo:
         query = f"""
         MATCH ()-[t:Transaction]->(:Terminal)
         WHERE 
-            datetime({{epochMillis: apoc.date.parse(t.TX_DATETIME, 'ms', 'yyyy-MM-dd HH:mm:ss')}}).month >= {dt_start.month} 
+            datetime(t.TX_DATETIME).month >= {dt_start.month} 
             AND 
-            datetime({{epochMillis: apoc.date.parse(t.TX_DATETIME, 'ms', 'yyyy-MM-dd HH:mm:ss')}}).day >= {dt_start.day}
+            datetime(t.TX_DATETIME).day >= {dt_start.day}
             AND 
-            datetime({{epochMillis: apoc.date.parse(t.TX_DATETIME, 'ms', 'yyyy-MM-dd HH:mm:ss')}}).month <= {dt_end.month} 
+            datetime(t.TX_DATETIME).month <= {dt_end.month} 
             AND
-            datetime({{epochMillis: apoc.date.parse(t.TX_DATETIME, 'ms', 'yyyy-MM-dd HH:mm:ss')}}).day <= {dt_end.day}
+            datetime(t.TX_DATETIME).day <= {dt_end.day}
         RETURN AVG(t.TX_AMOUNT) as avg_spending_amount
         """
 
@@ -145,13 +145,13 @@ class Neo:
         query = f"""
         MATCH (c:Customer)-[t:Transaction]->(:Terminal)
         WHERE
-        datetime({{epochMillis: apoc.date.parse(t.TX_DATETIME, 'ms', 'yyyy-MM-dd HH:mm:ss')}}).month >= {dt_start.month}
+        datetime(t.TX_DATETIME).month >= {dt_start.month}
         AND 
-        datetime({{epochMillis: apoc.date.parse(t.TX_DATETIME, 'ms', 'yyyy-MM-dd HH:mm:ss')}}).day >= {dt_start.day}
+        datetime(t.TX_DATETIME).day >= {dt_start.day}
         AND 
-        datetime({{epochMillis: apoc.date.parse(t.TX_DATETIME, 'ms', 'yyyy-MM-dd HH:mm:ss')}}).month <= {dt_end.month}
+        datetime(t.TX_DATETIME).month <= {dt_end.month}
         AND 
-        datetime({{epochMillis: apoc.date.parse(t.TX_DATETIME, 'ms', 'yyyy-MM-dd HH:mm:ss')}}).day <= {dt_end.day}
+        datetime(t.TX_DATETIME).day <= {dt_end.day}
         WITH COUNT(t) as transaction_number, COUNT(DISTINCT c) as customer_number
         RETURN transaction_number*1.0/customer_number as avg_spending_frequency
         """
@@ -196,9 +196,9 @@ class Neo:
         query = f"""
         MATCH (t:Terminal {{TERMINAL_ID: '{terminal_id}'}}) <-[tr:Transaction]- (:Customer)
         WHERE 
-        datetime({{epochMillis: apoc.date.parse(tr.TX_DATETIME, 'ms', 'yyyy-MM-dd HH:mm:ss')}}) >= datetime({{epochMillis: apoc.date.parse('{dt_start}', 'ms', 'yyyy-MM-dd HH:mm:ss')}})
+        datetime(tr.TX_DATETIME) >= datetime({{epochMillis: apoc.date.parse('{dt_start}', 'ms', 'yyyy-MM-dd HH:mm:ss')}})
         AND 
-        datetime({{epochMillis: apoc.date.parse(tr.TX_DATETIME, 'ms', 'yyyy-MM-dd HH:mm:ss')}}) <= datetime({{epochMillis: apoc.date.parse('{dt_end}', 'ms', 'yyyy-MM-dd HH:mm:ss')}})
+        datetime(tr.TX_DATETIME) <= datetime({{epochMillis: apoc.date.parse('{dt_end}', 'ms', 'yyyy-MM-dd HH:mm:ss')}})
         RETURN MAX(tr.TX_AMOUNT) as max_import
         """
         
@@ -326,7 +326,10 @@ class Neo:
         """
         query = f"""
         MATCH (t:Transaction)
-        WHERE datetime({{epochMillis: apoc.date.parse(t.TX_DATETIME, 'ms', 'yyyy-MM-dd HH:mm:ss')}}) >= date('{dt_start}') AND datetime({{epochMillis: apoc.date.parse(t.TX_DATETIME, 'ms', 'yyyy-MM-dd HH:mm:ss')}}) <= date('{dt_end}')
+        WHERE 
+        datetime(t.TX_DATETIME) >= datetime({{epochMillis: apoc.date.parse('{dt_start}', 'ms', 'yyyy-MM-dd HH:mm:ss')}})
+        AND 
+        datetime(t.TX_DATETIME) <= datetime({{epochMillis: apoc.date.parse('{dt_end}', 'ms', 'yyyy-MM-dd HH:mm:ss')}})
         RETURN t.PERIOD_OF_DAY, collect(t) as transactions_per_period
         """
         
@@ -344,7 +347,10 @@ class Neo:
         """
         query = f"""
         MATCH (t:Transaction)
-        WHERE datetime({{epochMillis: apoc.date.parse(t.TX_DATETIME, 'ms', 'yyyy-MM-dd HH:mm:ss')}}) >= '{dt_start}' AND date(t.TX_DATETIME) <= '{dt_end}'
+        WHERE 
+        datetime(t.TX_DATETIME) >= datetime({{epochMillis: apoc.date.parse('{dt_start}', 'ms', 'yyyy-MM-dd HH:mm:ss')}}) 
+        AND 
+        datetime(t.TX_DATETIME) <= datetime({{epochMillis: apoc.date.parse('{dt_end}', 'ms', 'yyyy-MM-dd HH:mm:ss')}}) '
         AND t.IS_FRAUD = true
         RETURN t.PERIOD_OF_DAY, collect(t) as fraudulent_transactions, avg(count(t)) as average_number_of_transactions
         """
