@@ -1,19 +1,14 @@
 from neo4j import GraphDatabase
 import os
-from enum import Enum
-from datetime import datetime
-
-class FileType(Enum):
-    CUSTOMERS = 0
-    TERMINALS = 1
-    TRANSACTIONS = 2
+from datetime import date, datetime
+from objects import Customer, FileType, Transaction
 
 class Neo:
 
     def __init__(self):
         try:
             print('Trying to open a connection with neo4j')
-            self.driver = GraphDatabase.driver(os.environ['NEO-URI'], auth=(os.environ['NEO-USER'], os.environ['NEO-PSW']))
+            self.driver = GraphDatabase.driver(os.environ['NEO_URI'], auth=(os.environ['NEO_USER'], os.environ['NEO_PSW']))
             print('Connection with neo4j opened')
         except:
             print('Could not open connection with neo4j')
@@ -71,7 +66,7 @@ class Neo:
 
 
     # Start of operations (a) functions
-    def get_customer_under_average(self, dt_start: datetime, dt_end: datetime)-> list(any):
+    def get_customer_under_average(self, dt_start: datetime, dt_end: datetime)-> list[Customer]:
         """ Get customer under average for spending amounts and frequency of spending between dt_start and dt_end, by comparing them to the average of this period
         (considering period as the same day&month over all the years registered in the database)
             Args:
@@ -81,8 +76,8 @@ class Neo:
             Returns:
                 A list representing all the customers that have their amounts and frequency of spending in the period less than the average of this period
         """
-        return ''
-    def get_period_average_spending_amounts(self, dt_start:Date, dt_end:Date)-> float:
+        return []
+    def get_period_average_spending_amounts(self, dt_start:date, dt_end:date)-> float:
         """ Get the average of spending amounts in a given period between dt_start and dt_end for all the years in the database
             
             Args:
@@ -92,8 +87,8 @@ class Neo:
             Returns:
                 A float stating the spending average in the period
         """
-        return ''
-    def get_period_average_spending_frequency(self, dt_start:Date, dt_end:Date)-> float:
+        return 0.1
+    def get_period_average_spending_frequency(self, dt_start:date, dt_end:date)-> float:
         """ Get the average of spending frequency in a given period between dt_start and dt_end for all the years in the database
             Args:
                 dt_start(datetime): date that states the start of the period to take in account (not consider the year)
@@ -102,11 +97,11 @@ class Neo:
             Returns:
                 A float stating the spending frequency in the period
         """
-        return ''
+        return 0.1
     # End of operations (a) functions
     
     # Start of operations (b) functions
-    def get_fraudolent_transactions(self, )-> list(any):
+    def get_fraudolent_transactions(self)-> list:
         """ Get all the fraudolent transactions that have an import higher than 20% 
             of the maximal import of the transactions executed on the same terminal in the last month
             
@@ -127,7 +122,7 @@ class Neo:
     # End of operations (b) functions
     
     # Start of operations (c) functions
-    def get_co_customer_relationships_of_degree_k(self, u:int, k:int)-> list(int):
+    def get_co_customer_relationships_of_degree_k(self, u:int, k:int)-> list[Customer]:
         """ Get the co-customer-relationships of degree k for the user u
             
             Args:
@@ -138,7 +133,7 @@ class Neo:
                 A list of the users that have a co-customer-relationship of degree k with the user u
         """
         return []
-    def set_co_customer_relationships(self, u:int, l:list(int))-> None:
+    def set_co_customer_relationships(self, u:int, l:list)-> None:
         """ Set the co-customer-relationships for the user u
             
             Args:
@@ -148,7 +143,7 @@ class Neo:
     # End of operations (c) functions
     
     # Start of operations (d) functions
-    def extend_neo(self, )-> None:
+    def extend_neo(self)-> None:
         """ Extend the logical model that you have stored in the NOSQL database by introducing the following information:
             Each transaction should be extended with:
                 - The period of the day {morning, afternoon, evening, night} in which the transaction has been executed.
@@ -159,22 +154,22 @@ class Neo:
             Therefore also this kind of relationship should be explicitly stored in the NOSQL database and can be queried. 
             Note, two average feelings of security are considered similar when their difference is lower than 1.
         """
-    def extend_neo_with_period(self, )-> None:
+    def extend_neo_with_period(self)-> None:
         """ Extend the logical model that you have stored in the NOSQL database by introducing the following information:
             Each transaction should be extended with:
                 - The period of the day {morning, afternoon, evening, night} in which the transaction has been executed.
         """
-    def extend_neo_with_kind_of_product(self, )-> None:
+    def extend_neo_with_kind_of_product(self)-> None:
         """ Extend the logical model that you have stored in the NOSQL database by introducing the following information:
             Each transaction should be extended with:
                 - The period of the day {morning, afternoon, evening, night} in which the transaction has been executed.
         """
-    def extend_neo_with_feeling_of_security(self, )-> None:
+    def extend_neo_with_feeling_of_security(self)-> None:
         """ Extend the logical model that you have stored in the NOSQL database by introducing the following information:
             Each transaction should be extended with:
                 - The period of the day {morning, afternoon, evening, night} in which the transaction has been executed.
         """
-    def get_buying_friends(self, u:int)-> list(int):
+    def get_buying_friends(self, u:int)-> list[int]:
         """ Get the buying friends of the user u
             
             Args:
@@ -184,37 +179,36 @@ class Neo:
                 A list of the users that are buying friends of the user u
         """
         return []
-    def set_buying_friends(self, u:int, l:list(int))-> None:
+    def set_buying_friends(self, u:int, l:list[int])-> None:
         """ Set the buying friends for the user u
             
             Args:
                 u(int): the id of the user to consider
                 l(list(int)): the list of the users that are buying friends of the user u
         """
-        return []
     # End of operations (d) functions
     
     # Start of operations (e) functions
-    def get_transactions_per_period(self, dt_start: datetime, dt_end: datetime)-> dict():
-        """ Get the number of transactions that occurred in each period of the day
+    def get_transactions_per_period(self, dt_start: datetime, dt_end: datetime)-> dict[str, list[Transaction]]:
+        """ Get the transactions that occurred in each period of the day
             
             Args:
                 dt_start(datetime): date that states the start of the period to take in account (not consider the year)
                 dt_end(datetime): date that states the end of the period to take in account (not consider the year) 
             
             Returns:
-                An dicr representing the number of transactions that occurred in each period of the day
+                An dict representing the transactions that occurred in each period of the day
         """
         return {}
-    def get_fraudolent_transactions_per_period(self, dt_start: datetime, dt_end: datetime)-> dict()
-        """ Get the number of fraudulent transactions that occurred in each period of the day and the average number of transactions
+    def get_fraudolent_transactions_per_period(self, dt_start: datetime, dt_end: datetime)-> dict[str, list[Transaction]]:
+        """ Get the fraudulent transactions that occurred in each period of the day and the average number of transactions
             
             Args:
                 dt_start(datetime): date that states the start of the period to take in account (not consider the year)
                 dt_end(datetime): date that states the end of the period to take in account (not consider the year) 
             
             Returns:
-                An dict representing the number of fraudulent transactions that occurred in each period of the day and the average number of transactions
+                An dict representing the fraudulent transactions that occurred in each period of the day and the average number of transactions
         """
         return {}
 
