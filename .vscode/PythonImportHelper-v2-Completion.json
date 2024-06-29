@@ -312,7 +312,25 @@
         "kind": 2,
         "importPath": "neo4j.import",
         "description": "neo4j.import",
-        "peekOfCode": "def relationship_creator(rel_lines:list[str],i:int):\n    print(\"Starting thread {i}\".format(i=i))\n    matches = ''\n    creates = ''\n    for line in rel_lines:\n        columns = line.split(',')\n        statement = f\"\"\"\n        MATCH (cc:Customer {{CUSTOMER_ID: '{columns[2]}'}}), (tt:Terminal {{TERMINAL_ID: '{columns[3]}'}})\n        CREATE (cc) -[tr:Transaction {{\n            TRANSACTION_ID: '{columns[0]}',",
+        "peekOfCode": "def relationship_creator(rel_lines:list[str],i:int):\n    print(\"Starting thread {i}\".format(i=i))\n    for line in rel_lines:\n        columns = line.split(',')\n        statement = f\"\"\"\n        MATCH (cc:Customer {{CUSTOMER_ID: '{columns[2]}'}}), (tt:Terminal {{TERMINAL_ID: '{columns[3]}'}})\n        CREATE (cc) -[tr:Transaction {{\n            TRANSACTION_ID: '{columns[0]}',\n            TX_DATETIME: '{columns[1]}',\n            TX_AMOUNT: toFloat({columns[4]}),",
+        "detail": "neo4j.import",
+        "documentation": {}
+    },
+    {
+        "label": "relationship_saver",
+        "kind": 2,
+        "importPath": "neo4j.import",
+        "description": "neo4j.import",
+        "peekOfCode": "def relationship_saver(rel_lines:list[str],i:int):\n    print(\"Starting thread {i}\".format(i=i))\n    statements = ''  # Initialize the statements variable\n    for line in rel_lines:\n        columns = line.split(',')\n        statements += f\"\"\"\n        MATCH (cc:Customer {{CUSTOMER_ID: '{columns[2]}'}}), (tt:Terminal {{TERMINAL_ID: '{columns[3]}'}})\n        CREATE (cc) -[tr:Transaction {{\n            TRANSACTION_ID: '{columns[0]}',\n            TX_DATETIME: '{columns[1]}',",
+        "detail": "neo4j.import",
+        "documentation": {}
+    },
+    {
+        "label": "file_merger",
+        "kind": 2,
+        "importPath": "neo4j.import",
+        "description": "neo4j.import",
+        "peekOfCode": "def file_merger(file_extension:str):\n    # List all the files in the directory\n    files = os.listdir('../simulated-data-raw-50mb/')\n    # Initialize the statements variable\n    statements = ''\n    # Loop through the files\n    for file in files:\n        # Check if the file has the required extension\n        if file.endswith(file_extension):\n            # Open the file in read mode",
         "detail": "neo4j.import",
         "documentation": {}
     },
@@ -321,7 +339,7 @@
         "kind": 2,
         "importPath": "neo4j.import",
         "description": "neo4j.import",
-        "peekOfCode": "def file_opener(file_name):\n    with open(file_name, 'r') as file:\n        try:\n            lines = file.readlines()[1:200000]  # Discard the first line (header) and limit the number of lines due to the free tier!\n            create_statement = ''\n            print('Starting to read the line of {file}, preparing {numRel} relationships'.format(file=file_name, numRel=len(lines)))\n            list_splitter = [i * 4000 for i in range(1, 51)]\n            list_splitter.append(200000)\n            threads = []\n            for i in range(1, 51):",
+        "peekOfCode": "def file_opener(file_name):\n    with open(file_name, 'r') as file:\n        try:\n            lines = file.readlines()[1:200000]  # Discard the first line (header) and limit the number of lines due to the free tier!\n            create_statement = ''\n            print('Starting to read the line of {file}, preparing {numRel} relationships'.format(file=file_name, numRel=len(lines)))\n            #Thread section:\n            list_splitter = [i * 4000 for i in range(1, 51)]\n            list_splitter.append(200000)\n            threads = []",
         "detail": "neo4j.import",
         "documentation": {}
     },
@@ -330,7 +348,7 @@
         "kind": 5,
         "importPath": "neo4j.import",
         "description": "neo4j.import",
-        "peekOfCode": "conn = neo.Neo()\ncsv_links = [\n    'https://docs.google.com/spreadsheets/d/e/2PACX-1vQ_l00V8A5UuF548dJf238hYO2D7CAXLKh8tq1A9ZA0_N_3MdTo5wkVwY3cJM42MkbxhliyYkQlwvf6/pub?gid=1121667338&single=true&output=csv', # customers \n    'https://docs.google.com/spreadsheets/d/e/2PACX-1vR--1SpqbVMo4_18oRvVGtSgHBMnbQ_4i53QZrFUxYAVd9spQwe9m1jBs649mVG5_gav0q9PKZVrAdo/pub?gid=1649816939&single=true&output=csv', # terminals \n]\nconn.import_csv(csv_links[0], neo.FileType.CUSTOMERS)\nconn.import_csv(csv_links[1], neo.FileType.TERMINALS)\ndef relationship_creator(rel_lines:list[str],i:int):\n    print(\"Starting thread {i}\".format(i=i))\n    matches = ''",
+        "peekOfCode": "conn = neo.Neo()\ncsv_links = [\n    'https://docs.google.com/spreadsheets/d/e/2PACX-1vQ_l00V8A5UuF548dJf238hYO2D7CAXLKh8tq1A9ZA0_N_3MdTo5wkVwY3cJM42MkbxhliyYkQlwvf6/pub?gid=1121667338&single=true&output=csv', # customers \n    'https://docs.google.com/spreadsheets/d/e/2PACX-1vR--1SpqbVMo4_18oRvVGtSgHBMnbQ_4i53QZrFUxYAVd9spQwe9m1jBs649mVG5_gav0q9PKZVrAdo/pub?gid=1649816939&single=true&output=csv', # terminals \n]\n# conn.import_csv(csv_links[0], neo.FileType.CUSTOMERS)\n# conn.import_csv(csv_links[1], neo.FileType.TERMINALS)\ndef relationship_creator(rel_lines:list[str],i:int):\n    print(\"Starting thread {i}\".format(i=i))\n    for line in rel_lines:",
         "detail": "neo4j.import",
         "documentation": {}
     },
@@ -339,7 +357,7 @@
         "kind": 5,
         "importPath": "neo4j.import",
         "description": "neo4j.import",
-        "peekOfCode": "csv_links = [\n    'https://docs.google.com/spreadsheets/d/e/2PACX-1vQ_l00V8A5UuF548dJf238hYO2D7CAXLKh8tq1A9ZA0_N_3MdTo5wkVwY3cJM42MkbxhliyYkQlwvf6/pub?gid=1121667338&single=true&output=csv', # customers \n    'https://docs.google.com/spreadsheets/d/e/2PACX-1vR--1SpqbVMo4_18oRvVGtSgHBMnbQ_4i53QZrFUxYAVd9spQwe9m1jBs649mVG5_gav0q9PKZVrAdo/pub?gid=1649816939&single=true&output=csv', # terminals \n]\nconn.import_csv(csv_links[0], neo.FileType.CUSTOMERS)\nconn.import_csv(csv_links[1], neo.FileType.TERMINALS)\ndef relationship_creator(rel_lines:list[str],i:int):\n    print(\"Starting thread {i}\".format(i=i))\n    matches = ''\n    creates = ''",
+        "peekOfCode": "csv_links = [\n    'https://docs.google.com/spreadsheets/d/e/2PACX-1vQ_l00V8A5UuF548dJf238hYO2D7CAXLKh8tq1A9ZA0_N_3MdTo5wkVwY3cJM42MkbxhliyYkQlwvf6/pub?gid=1121667338&single=true&output=csv', # customers \n    'https://docs.google.com/spreadsheets/d/e/2PACX-1vR--1SpqbVMo4_18oRvVGtSgHBMnbQ_4i53QZrFUxYAVd9spQwe9m1jBs649mVG5_gav0q9PKZVrAdo/pub?gid=1649816939&single=true&output=csv', # terminals \n]\n# conn.import_csv(csv_links[0], neo.FileType.CUSTOMERS)\n# conn.import_csv(csv_links[1], neo.FileType.TERMINALS)\ndef relationship_creator(rel_lines:list[str],i:int):\n    print(\"Starting thread {i}\".format(i=i))\n    for line in rel_lines:\n        columns = line.split(',')",
         "detail": "neo4j.import",
         "documentation": {}
     },
