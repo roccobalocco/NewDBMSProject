@@ -13,7 +13,7 @@ def clean_csv(filepath: str):
     with open(filepath, 'r') as file:
         lines = file.readlines()
     
-    data = [line.strip().split(',')[1:] for line in lines]
+    data = [line.strip().split(';')[1:] for line in lines]
     # dopo e' necessario rimuovere alcune imperfezioni sulla lista dei terminali
     
     # Write the cleaned data to a new file
@@ -50,11 +50,11 @@ for key, value in args_num.items():
     start_date = datetime.datetime.strptime("2018-04-01", "%Y-%m-%d")
 
     # saving customers
-    customer_profiles_table.to_csv(DIR_OUTPUT + '/customers.csv', sep=',', encoding='utf-8')
+    customer_profiles_table.to_csv(DIR_OUTPUT + '/customers.csv', sep=';', encoding='utf-8')
     clean_csv(DIR_OUTPUT + '/customers.csv')
     # saving terminals   
-    terminal_profiles_table.to_csv(DIR_OUTPUT + '/terminals.csv', sep=',', encoding='utf-8')
+    terminal_profiles_table.to_csv(DIR_OUTPUT + '/terminals.csv', sep=';', encoding='utf-8')
     clean_csv(DIR_OUTPUT + '/terminals.csv')
     # saving transactions:
-    transactions_df.to_csv(DIR_OUTPUT + '/transactions.csv', sep=',', encoding='utf-8')
+    transactions_df.to_csv(DIR_OUTPUT + '/transactions.csv', sep=';', encoding='utf-8')
     clean_csv(DIR_OUTPUT + '/transactions.csv')

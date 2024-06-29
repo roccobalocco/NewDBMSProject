@@ -5,27 +5,27 @@ import threading
 conn = neo.Neo()
 
 csv_links = [
-    'https://docs.google.com/spreadsheets/d/e/2PACX-1vQ_l00V8A5UuF548dJf238hYO2D7CAXLKh8tq1A9ZA0_N_3MdTo5wkVwY3cJM42MkbxhliyYkQlwvf6/pub?gid=1121667338&single=true&output=csv', # customers 
+    'https://docs.google.com/spreadsheets/d/e/2PACX-1vQBnQLFLdfWSFhd_to3HMDyJdQ4qupuzuWeftvJdMUBAthFqreUstKsHZdk0E-UnUTDyIClDrNAlO1l/pub?gid=1279874191&single=true&output=csv', # customers 
     'https://docs.google.com/spreadsheets/d/e/2PACX-1vR--1SpqbVMo4_18oRvVGtSgHBMnbQ_4i53QZrFUxYAVd9spQwe9m1jBs649mVG5_gav0q9PKZVrAdo/pub?gid=1649816939&single=true&output=csv', # terminals 
 ]
 
-# conn.import_csv(csv_links[0], neo.FileType.CUSTOMERS)
-# conn.import_csv(csv_links[1], neo.FileType.TERMINALS)
+conn.import_csv(csv_links[0], neo.FileType.CUSTOMERS)
+conn.import_csv(csv_links[1], neo.FileType.TERMINALS)
 
 def relationship_creator(rel_lines:list[str],i:int):
     print("Starting thread {i}".format(i=i))
     for line in rel_lines:
-        columns = line.split(',')
+        columns = line.split(';')
         statement = f"""
         MATCH (cc:Customer {{CUSTOMER_ID: '{columns[2]}'}}), (tt:Terminal {{TERMINAL_ID: '{columns[3]}'}})
         CREATE (cc) -[tr:Transaction {{
-            TRANSACTION_ID: '{columns[0]}',
-            TX_DATETIME: '{columns[1]}',
+            TRANSACTION_ID: toInteger({columns[0]}),
+            TX_DATETIME:  datetime({{epochMillis: apoc.date.parse('{columns[1]}', 'ms', 'yyyy-MM-dd HH:mm:ss')}}),
             TX_AMOUNT: toFloat({columns[4]}),
             TX_TIME_SECONDS: toInteger({columns[5]}),
             TX_TIME_DAYS: toInteger({columns[6]}),
-            TX_FRAUD: '{columns[7]}',
-            TX_FRAUD_SCENARIO: '{columns[8]}'
+            TX_FRAUD: toBoolean({columns[7]}),
+            TX_FRAUD_SCENARIO: toInteger({columns[8]})
             }}]-> (tt);
         """
         # This is inside the for because appareantly the free tier has some issues concatenating create statements of this kind....
@@ -38,17 +38,17 @@ def relationship_saver(rel_lines:list[str],i:int):
     statements = ''  # Initialize the statements variable
     
     for line in rel_lines:
-        columns = line.split(',')
+        columns = line.split(';')
         statements += f"""
         MATCH (cc:Customer {{CUSTOMER_ID: '{columns[2]}'}}), (tt:Terminal {{TERMINAL_ID: '{columns[3]}'}})
         CREATE (cc) -[tr:Transaction {{
-            TRANSACTION_ID: '{columns[0]}',
-            TX_DATETIME: '{columns[1]}',
+            TRANSACTION_ID: toInteger({columns[0]}),
+            TX_DATETIME:  datetime({{epochMillis: apoc.date.parse('{columns[1]}', 'ms', 'yyyy-MM-dd HH:mm:ss')}}),
             TX_AMOUNT: toFloat({columns[4]}),
             TX_TIME_SECONDS: toInteger({columns[5]}),
             TX_TIME_DAYS: toInteger({columns[6]}),
-            TX_FRAUD: '{columns[7]}',
-            TX_FRAUD_SCENARIO: '{columns[8]}'
+            TX_FRAUD: toBoolean({columns[7]}),
+            TX_FRAUD_SCENARIO: toInteger({columns[8]})
             }}]-> (tt);
         """
         
@@ -89,14 +89,14 @@ def file_opener(file_name):
             print('Starting to read the line of {file}, preparing {numRel} relationships'.format(file=file_name, numRel=len(lines)))
 
             #Thread section:
-            list_splitter = [i * 4000 for i in range(1, 51)]
+            list_splitter = [i * 2000 for i in range(1, 101)]
             list_splitter.append(200000)
             threads = []
-            for i in range(1, 51):
+            for i in range(1, 101):
                 # To save on the db really slow
-                # thread = threading.Thread(target=relationship_creator, args=(lines[list_splitter[i-1]:list_splitter[i]],i,))
+                thread = threading.Thread(target=relationship_creator, args=(lines[list_splitter[i-1]:list_splitter[i]],i,))
                 # To save into cql files using threads
-                thread = threading.Thread(target=relationship_saver, args=(lines[list_splitter[i-1]:list_splitter[i]],i,))
+                #thread = threading.Thread(target=relationship_saver, args=(lines[list_splitter[i-1]:list_splitter[i]],i,))
                 
                 threads.append(thread)
                 thread.start()
@@ -104,7 +104,7 @@ def file_opener(file_name):
             for thread in threads:
                 thread.join()
             
-            file_merger('.cql')
+            # file_merger('.cql')
         except:
             print('You have finished the free tier :/, maybe')
 # Do not try at home, the free tier will explode, only the first of my seven files will reach the node limit!
