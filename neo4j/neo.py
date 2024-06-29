@@ -67,16 +67,31 @@ class Neo:
 
     # Start of operations (a) functions
     def get_customer_under_average(self, dt_start: datetime, dt_end: datetime)-> list[Customer]:
-        """ Get customer under average for spending amounts and frequency of spending between dt_start and dt_end, by comparing them to the average of this period
-        (considering period as the same day&month over all the years registered in the database)
-            Args:
+        """ Get customer under average for spending amounts and frequency of spending between dt_start and dt_end, 
+            by comparing them to the average of this period
+            (considering period as the same day&month over all the years registered in the database)
+        
+                Args:
                 dt_start(datetime): date that states the start of the period to take in account 
                 dt_end(datetime): date that states the end of the period to take in account
     
             Returns:
-                A list representing all the customers that have their amounts and frequency of spending in the period less than the average of this period
+                A list representing all the customers that have their amounts and frequency of spending in the period in this year 
+                less than the average of this period all over the years
         """
-        return []
+        avg_spending_amount = self.get_period_average_spending_amounts(dt_start, dt_end)
+        avg_spending_frequency = self.get_period_average_spending_frequency(dt_start, dt_end)
+
+        query = f"""
+        MATCH (c:Customer)  -[t:Transaction]-> (:Terminal)
+        WHERE t.TX_DATETIME >= '{dt_start}' AND t.TX_DATETIME <= '{dt_end}'
+        WITH c, AVG(t.TX_AMOUNT) as avg_amount, COUNT(t) as nb_tx
+        WHERE avg_amount < {avg_spending_amount} AND nb_tx < {avg_spending_frequency}
+        RETURN collect(c) as customers
+        """
+
+        customers = self.free_query(query)
+        return customers  # type: ignore
     def get_period_average_spending_amounts(self, dt_start:date, dt_end:date)-> float:
         """ Get the average of spending amounts in a given period between dt_start and dt_end for all the years in the database
             
@@ -87,7 +102,15 @@ class Neo:
             Returns:
                 A float stating the spending average in the period
         """
-        return 0.1
+        query = f"""
+        MATCH (t:Transaction)
+        WHERE date(t.TX_DATETIME).month = {dt_start.month} AND date(t.TX_DATETIME).day >= {dt_start.day}
+            AND date(t.TX_DATETIME).month = {dt_end.month} AND date(t.TX_DATETIME).day >= {dt_end.day}
+        RETURN AVG(t.TX_AMOUNT) as avg_spending_amount
+        """
+
+        avg_spending_amount  = self.free_query(query)
+        return float(avg_spending_amount)  # type: ignore
     def get_period_average_spending_frequency(self, dt_start:date, dt_end:date)-> float:
         """ Get the average of spending frequency in a given period between dt_start and dt_end for all the years in the database
             Args:
@@ -97,7 +120,17 @@ class Neo:
             Returns:
                 A float stating the spending frequency in the period
         """
-        return 0.1
+        query = f"""
+        MATCH (c:Customer)
+        WITH COUNT(c) as customer_number
+        MATCH (t:Transaction)
+        WHERE date(t.TX_DATETIME).month = {dt_start.month} AND date(t.TX_DATETIME).day >= {dt_start.day}
+            AND date(t.TX_DATETIME).month = {dt_end.month} AND date(t.TX_DATETIME).day >= {dt_end.day}
+        RETURN COUNT(t) / customer_number as avg_spending_frequency
+        """
+
+        avg_spending_frequency  = self.free_query(query)
+        return float(avg_spending_frequency)  # type: ignore
     # End of operations (a) functions
     
     # Start of operations (b) functions
@@ -214,4 +247,5 @@ class Neo:
 
 if __name__ == "__main__":
     greeter = Neo()
+    greeter.get_customer_under_average(datetime(2024, 6, 1), datetime.now())
     greeter.close()
