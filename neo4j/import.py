@@ -5,12 +5,12 @@ import threading
 conn = neo.Neo()
 
 csv_links = [
-    'https://docs.google.com/spreadsheets/d/e/2PACX-1vQL2bzUZly1hPp8WJx9RNAWOz-wrK7VfZ3I_mC72T-Ui7gUeHir956EYAM6JH_2-iRq1S-U4_W_-pwZ/pub?gid=2006922834&single=true&output=csv', # customers 
-    'https://docs.google.com/spreadsheets/d/e/2PACX-1vTaZNCMx2Jl4yYOqfLwAHUf2LXCTGKN6MLMufpNNPw-1BEBizFvh22c8t_LkmeIy6dtFE-Nj38jJSHz/pub?gid=2106011748&single=true&output=csv', # terminals 
+    'https://docs.google.com/spreadsheets/d/e/2PACX-1vQ_l00V8A5UuF548dJf238hYO2D7CAXLKh8tq1A9ZA0_N_3MdTo5wkVwY3cJM42MkbxhliyYkQlwvf6/pub?gid=1121667338&single=true&output=csv', # customers 
+    'https://docs.google.com/spreadsheets/d/e/2PACX-1vR--1SpqbVMo4_18oRvVGtSgHBMnbQ_4i53QZrFUxYAVd9spQwe9m1jBs649mVG5_gav0q9PKZVrAdo/pub?gid=1649816939&single=true&output=csv', # terminals 
 ]
 
-#conn.import_csv(csv_links[0], neo.FileType.CUSTOMERS)
-#conn.import_csv(csv_links[1], neo.FileType.TERMINALS)
+conn.import_csv(csv_links[0], neo.FileType.CUSTOMERS)
+conn.import_csv(csv_links[1], neo.FileType.TERMINALS)
 
 def relationship_creator(rel_lines:list[str],i:int):
     print("Starting thread {i}".format(i=i))
@@ -19,15 +19,15 @@ def relationship_creator(rel_lines:list[str],i:int):
     for line in rel_lines:
         columns = line.split(',')
         statement = f"""
-        MATCH (cc:Customer {{CUSTOMER_ID: '{columns[3]}'}}), (tt:Terminal {{TERMINAL_ID: '{columns[4]}'}})
+        MATCH (cc:Customer {{CUSTOMER_ID: '{columns[2]}'}}), (tt:Terminal {{TERMINAL_ID: '{columns[3]}'}})
         CREATE (cc) -[tr:Transaction {{
-            TRANSACTION_ID: '{columns[1]}',
-            TX_DATETIME: '{columns[2]}',
-            TX_AMOUNT: toFloat({columns[5]}),
-            TX_TIME_SECONDS: toInteger({columns[6]}),
-            TX_TIME_DAYS: toInteger({columns[7]}),
-            TX_FRAUD: '{columns[8]}',
-            TX_FRAUD_SCENARIO: '{columns[9]}'
+            TRANSACTION_ID: '{columns[0]}',
+            TX_DATETIME: '{columns[1]}',
+            TX_AMOUNT: toFloat({columns[4]}),
+            TX_TIME_SECONDS: toInteger({columns[5]}),
+            TX_TIME_DAYS: toInteger({columns[6]}),
+            TX_FRAUD: '{columns[7]}',
+            TX_FRAUD_SCENARIO: '{columns[8]}'
             }}]-> (tt);
         """
         # This is inside the for because appareantly the free tier has some issues concatenating create statements of this kind....
