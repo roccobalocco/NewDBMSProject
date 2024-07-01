@@ -101,10 +101,8 @@ class Neo:
         WHERE avg_amount < {avg_spending_amount} AND nb_tx < {avg_spending_frequency}
         RETURN collect(c) as customers
         """
-        print("get_customer_under_average query:\n", query)
 
         customers = self.free_query(query)
-        print(customers)
         return customers  # type: ignore
     def get_period_average_spending_amounts(self, dt_start:date, dt_end:date)-> float:
         """ Get the average of spending amounts in a given period between dt_start and dt_end for all the years in the database
@@ -178,9 +176,8 @@ class Neo:
         WHERE t.TX_AMOUNT >= {maximal_import_20}
         RETURN collect(t) as fraudolent_transactions
         """
-        print('get_fraudolent_transactions query:\n', query)
+
         fraudolent_transactions = self.free_query(query)
-        print(fraudolent_transactions)
         return fraudolent_transactions  # type: ignore
     def get_terminal_max_import_last_month(self, terminal_id:str, dt_start:date, dt_end:date)-> float:
         """ Get the maximal import of the transactions executed on the terminal terminal_id in the last month
@@ -202,7 +199,6 @@ class Neo:
         RETURN MAX(tr.TX_AMOUNT) as max_import
         """
         
-        print('get_terminal_max_import_last_month query:\n', query)
         maximal_import = self.free_query_single(query)
         if (maximal_import is None):
             return 0.
@@ -220,14 +216,14 @@ class Neo:
             Returns:
                 A list of the users that have a co-customer-relationship of degree k with the user u
         """
-        return []
-    def set_co_customer_relationships(self, u:int, l:list)-> None:
-        """ Set the co-customer-relationships for the user u
-            
-            Args:
-                u(int): the id of the user to consider
-                l(list(int)): the list of the users that have a co-customer-relationship with the user u
+        query = f"""
+        MATCH (c:Customer {{CUSTOMER_ID: '{u}'}}) -[:Transaction*{k}]- (co:Customer)
+        WHERE c <> co
+        RETURN collect(DISTINCT co) as co_customers
         """
+
+        co_customers = self.free_query(query)
+        return co_customers  # type: ignore
     # End of operations (c) functions
     
     # Start of operations (d) functions
@@ -364,8 +360,11 @@ if __name__ == "__main__":
     # There are a lot of costumer with small transactions number but large spending amount and viceversa, so....
     # greeter.get_customer_under_average(datetime(2019, 1, 1), datetime(2019, 2, 1))
     
-    # This query shows up two fraudolent transaction on the terminal 5 in the period between 2019-01-01 and 2019-02-01!
-    # and both of them are marked as fraudolent in the field of the relationship
+    # This query shows fraudolent transaction on the terminal 5 in the period between 2019-01-01 and 2019-02-01!
+    # and them are marked as fraudolent in the field of the relationship
     #greeter.get_fraudolent_transactions("5",datetime(2019, 1, 1), datetime(2019, 2, 1))
     
+    # This query shows up the co-customer-relationships of degree 2 for the user 63
+    # co_customers = greeter.get_co_customer_relationships_of_degree_k(63, 2)
+
     greeter.close()
