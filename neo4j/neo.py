@@ -33,7 +33,7 @@ class Neo:
             case FileType.CUSTOMERS:
                 create_statement = """
                 CREATE (:Customer {
-                    CUSTOMER_ID: line.CUSTOMER_ID,
+                    CUSTOMER_ID: toInteger(line.CUSTOMER_ID),
                     x_customer_id: line.x_customer_id,
                     y_customer_id: line.y_customer_id,
                     mean_amount: toFloat(line.mean_amount),
@@ -46,7 +46,7 @@ class Neo:
             case FileType.TERMINALS:
                 create_statement = """
                 CREATE (:Terminal {
-                    TERMINAL_ID: line.TERMINAL_ID,
+                    TERMINAL_ID: toInteger(line.TERMINAL_ID),
                     x_terminal_id: line.x_terminal_id,
                     y_terminal_id: line.y_terminal_id
                 })
