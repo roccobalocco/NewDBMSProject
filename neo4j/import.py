@@ -17,7 +17,7 @@ def relationship_creator(rel_lines:list[str],i:int):
     for line in rel_lines:
         columns = line.split(';')
         statement = f"""
-        MATCH (cc:Customer {{CUSTOMER_ID: '{columns[2]}'}}), (tt:Terminal {{TERMINAL_ID: '{columns[3]}'}})
+        MATCH (cc:Customer {{CUSTOMER_ID: {columns[2]}}}), (tt:Terminal {{TERMINAL_ID: {columns[3]}}})
         CREATE (cc) -[tr:Transaction {{
             TRANSACTION_ID: toInteger({columns[0]}),
             TX_DATETIME:  datetime({{epochMillis: apoc.date.parse('{columns[1]}', 'ms', 'yyyy-MM-dd HH:mm:ss')}}),

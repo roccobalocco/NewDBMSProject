@@ -172,7 +172,7 @@ class Neo:
         maximal_import = self.get_terminal_max_import_last_month(terminal_id, dt_start, dt_end)
         maximal_import_20 = maximal_import + (maximal_import * 0.2)
         query = f"""
-        MATCH (:Terminal {{TERMINAL_ID: '{terminal_id}'}}) -[t:Transaction]- ()
+        MATCH (:Terminal {{TERMINAL_ID: {terminal_id}}}) -[t:Transaction]- ()
         WHERE t.TX_AMOUNT >= {maximal_import_20}
         RETURN collect(t) as fraudolent_transactions
         """
@@ -191,7 +191,7 @@ class Neo:
                 A float representing the maximal import of the transactions executed on the terminal terminal_id in the last month
         """
         query = f"""
-        MATCH (t:Terminal {{TERMINAL_ID: '{terminal_id}'}}) <-[tr:Transaction]- (:Customer)
+        MATCH (t:Terminal {{TERMINAL_ID: {terminal_id}}}) <-[tr:Transaction]- (:Customer)
         WHERE 
         datetime(tr.TX_DATETIME) >= datetime({{epochMillis: apoc.date.parse('{dt_start}', 'ms', 'yyyy-MM-dd HH:mm:ss')}})
         AND 
@@ -205,7 +205,7 @@ class Neo:
         return float(maximal_import["max_import"]) # type: ignore
     # End of operations (b) functions
     
-    # Start of operations (c) functions
+    # Start of operations (c) functions DONE
     def get_co_customer_relationships_of_degree_k(self, u:int, k:int)-> list[Customer]:
         """ Get the co-customer-relationships of degree k for the user u
             
@@ -217,7 +217,7 @@ class Neo:
                 A list of the users that have a co-customer-relationship of degree k with the user u
         """
         query = f"""
-        MATCH (c:Customer {{CUSTOMER_ID: '{u}'}}) -[:Transaction*{k}]- (co:Customer)
+        MATCH (c:Customer {{CUSTOMER_ID: {u}}}) -[:Transaction*{k}]- (co:Customer)
         WHERE c <> co
         RETURN collect(DISTINCT co) as co_customers
         """
@@ -226,7 +226,7 @@ class Neo:
         return co_customers  # type: ignore
     # End of operations (c) functions
     
-    # Start of operations (d) functions
+    # Start of operations (d) functions TO BE TESTED
     def extend_neo(self)-> None:
         """ Extend the logical model that you have stored in the NOSQL database by introducing the following information:
             Each transaction should be extended with:
@@ -249,11 +249,12 @@ class Neo:
                 - The period of the day {morning, afternoon, evening, night} in which the transaction has been executed.
         """
         query = """
-        MATCH (t:Transaction)
-        SET t.PERIOD_OF_DAY = CASE
-            WHEN hour(t.TX_DATETIME) >= 6 AND hour(t.TX_DATETIME) < 12 THEN 'morning'
-            WHEN hour(t.TX_DATETIME) >= 12 AND hour(t.TX_DATETIME) < 18 THEN 'afternoon'
-            WHEN hour(t.TX_DATETIME) >= 18 AND hour(t.TX_DATETIME) < 24 THEN 'evening'
+        MATCH ()-[t:Transaction]-()
+        WITH distinct t as single_t
+        SET single_t.PERIOD_OF_DAY = CASE
+            WHEN single_t.TX_DATETIME.hour >= 6 AND single_t.TX_DATETIME.hour < 12 THEN 'morning'
+            WHEN single_t.TX_DATETIME.hour >= 18 AND single_t.TX_DATETIME.hour < 24 THEN 'evening'
+            WHEN single_t.TX_DATETIME.hour >= 12 AND single_t.TX_DATETIME.hour < 18 THEN 'afternoon'
             ELSE 'night'
         END
         """
@@ -266,14 +267,16 @@ class Neo:
                 - The kind of products that have been bought through the transaction {high-tech, food, clothing, consumable, other}
         """
         query = """
-        MATCH (t:Transaction)
+        MATCH ()-[tt:Transaction]-()
+        WITH distinct tt as t
         SET t.KIND_OF_PRODUCT = CASE
-            WHEN t.PRODUCT_TYPE = 'high-tech' THEN 'high-tech'
-            WHEN t.PRODUCT_TYPE = 'food' THEN 'food'
-            WHEN t.PRODUCT_TYPE = 'clothing' THEN 'clothing'
-            WHEN t.PRODUCT_TYPE = 'consumable' THEN 'consumable'
+            WHEN t.TRANSACTION_ID % 5  = 0 THEN 'high-tech'
+            WHEN t.TRANSACTION_ID % 5  = 1 THEN 'food'
+            WHEN t.TRANSACTION_ID % 5  = 2 THEN 'clothing'
+            WHEN t.TRANSACTION_ID % 5  = 3 THEN 'consumable'
             ELSE 'other'
         END
+        return t.KIND_OF_PRODUCT
         """
         
         self.free_query(query)
@@ -285,7 +288,8 @@ class Neo:
                     The values can be chosen randomly.
         """
         query = """
-        MATCH (t:Transaction)
+        MATCH ()-[tt:Transaction]-()
+        WITH distinct tt as t
         SET t.FEELING_OF_SECURITY = toInteger(rand() * 5) + 1
         """
         
@@ -295,14 +299,11 @@ class Neo:
         """ Connect customers that make more than three transactions from the same terminal expressing a similar average feeling of security as "buying_friends".
         """
         query = """
-        MATCH (t:Transaction)-[:EXECUTED_ON]->(terminal:Terminal)<-[:EXECUTED_ON]-(other:Transaction)
-        WHERE t.CUSTOMER_ID = other.CUSTOMER_ID AND t.TERMINAL_ID = other.TERMINAL_ID
-        WITH t.CUSTOMER_ID AS customer_id, terminal.TERMINAL_ID AS terminal_id, AVG(t.FEELING_OF_SECURITY) AS avg_feeling_of_security
-        GROUP BY customer_id, terminal_id
-        HAVING COUNT(t) > 3 AND abs(AVG(t.FEELING_OF_SECURITY) - avg_feeling_of_security) < 1
-        MATCH (c1:Customer {CUSTOMER_ID: customer_id})-[:EXECUTED]->(t1:Transaction)-[:EXECUTED_ON]->(terminal1:Terminal {TERMINAL_ID: terminal_id})
-        MATCH (c2:Customer)-[:EXECUTED]->(t2:Transaction)-[:EXECUTED_ON]->(terminal2:Terminal {TERMINAL_ID: terminal_id})
-        WHERE c1 <> c2
+        MATCH (c1:Customer)-[tc1:Transaction]->(terminal:Terminal)<-[tc2:Transaction]-(c2:Customer)
+        WHERE c1.CUSTOMER_ID <> c2.CUSTOMER_ID 
+        WITH terminal.TERMINAL_ID AS terminal_id, count(distinct tc1) as tnc1_num, c1, count(distinct tc2) as tnc2_num, c2, 
+            AVG(tc1.FEELING_OF_SECURITY) AS tc1_avg_fos, AVG(tc2.FEELING_OF_SECURITY) AS tc2_avg_fos
+        WHERE tnc1_num > 3 and tnc2_num > 3 AND abs(tc1_avg_fos - tc2_avg_fos) < 1
         CREATE (c1)-[:BUYING_FRIEND]->(c2)
         """
         
