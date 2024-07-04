@@ -1,6 +1,9 @@
 from neo4j import GraphDatabase
 import os
 from datetime import date, datetime
+
+import neo4j
+from pandas import DataFrame
 from objects import Customer, FileType, Transaction
 
 class Neo:
@@ -16,10 +19,14 @@ class Neo:
     def close(self):
         print('Closing connection with neo4j')
         self.driver.close()
-
-    def free_query(self, query):
-        with self.driver.session() as session:
-            return session.execute_write(self._free_query, query)
+    
+    def free_query(self, query)-> DataFrame:
+        pandas_df = self.driver.execute_query(
+            query,
+            result_transformer_=neo4j.Result.to_df
+        )
+        # result = session.execute_write(self._free_query_single, query)
+        return pandas_df 
         
     def free_query_single(self, query):
         with self.driver.session() as session:
@@ -66,9 +73,15 @@ class Neo:
         tx.run(query)
         
     @staticmethod
-    def _free_query(tx, query):
-        result = tx.run(query)
-        return result.data()
+    def _free_query(tx, query) -> DataFrame:
+        # result = tx.run(query)
+        pandas_df = tx.execute_query(
+            query,
+            result_transformer_= neo4j.Result.to_df
+        )
+        return pandas_df
+        # result = tx.run(query)
+        # return result.data()
     
     @staticmethod
     def _free_query_single(tx, query):
@@ -76,7 +89,7 @@ class Neo:
         return result.single()
     
     # Start of operations (a) functions DONE
-    def get_customer_under_average(self, dt_start: datetime, dt_end: datetime)-> list[Customer]:
+    def get_customer_under_average(self, dt_start: datetime, dt_end: datetime)-> DataFrame:
         """ Get customer under average for spending amounts and frequency of spending between dt_start and dt_end, 
             by comparing them to the average of this period
             (considering period as the same day&month over all the years registered in the database)
@@ -86,7 +99,7 @@ class Neo:
                 dt_end(datetime): date that states the end of the period to take in account
     
             Returns:
-                A list representing all the customers that have their amounts and frequency of spending in the period in this year 
+                A dataframe representing all the customers that have their amounts and frequency of spending in the period in this year 
                 less than the average of this period all over the years
         """
         avg_spending_amount = self.get_period_average_spending_amounts(dt_start, dt_end)
@@ -161,12 +174,12 @@ class Neo:
     # End of operations (a) functions
     
     # Start of operations (b) functions DONE
-    def get_fraudolent_transactions(self, terminal_id:str, dt_start:date, dt_end:date)-> list:
+    def get_fraudolent_transactions(self, terminal_id:str, dt_start:date, dt_end:date)-> DataFrame:
         """ Get all the fraudolent transactions that have an import higher than 20% 
             of the maximal import of the transactions executed on the same terminal in the last month
             
             Returns:
-                A list of transactions that are considered fraudolent like this one:
+                A dataframe of transactions that are considered fraudolent like this one:
                 `[{'fraudolent_transactions': [({}, 'Transaction', {}), ({}, 'Transaction', {})]}]`
         """
         maximal_import = self.get_terminal_max_import_last_month(terminal_id, dt_start, dt_end)
@@ -178,7 +191,7 @@ class Neo:
         """
 
         fraudolent_transactions = self.free_query(query)
-        return fraudolent_transactions  # type: ignore
+        return fraudolent_transactions
     def get_terminal_max_import_last_month(self, terminal_id:str, dt_start:date, dt_end:date)-> float:
         """ Get the maximal import of the transactions executed on the terminal terminal_id in the last month
             
@@ -202,11 +215,11 @@ class Neo:
         maximal_import = self.free_query_single(query)
         if (maximal_import is None):
             return 0.
-        return float(maximal_import["max_import"]) # type: ignore
+        return float(maximal_import["max_import"])
     # End of operations (b) functions
     
     # Start of operations (c) functions DONE
-    def get_co_customer_relationships_of_degree_k(self, u:int, k:int)-> list[Customer]:
+    def get_co_customer_relationships_of_degree_k(self, u:int, k:int)-> DataFrame:
         """ Get the co-customer-relationships of degree k for the user u
             
             Args:
@@ -214,7 +227,7 @@ class Neo:
                 k(int): the degree of the co-customer-relationships
     
             Returns:
-                A list of the users that have a co-customer-relationship of degree k with the user u
+                A dataframe of the users that have a co-customer-relationship of degree k with the user u
         """
         query = f"""
         MATCH (c:Customer {{CUSTOMER_ID: {u}}}) -[:Transaction*{k}]- (co:Customer)
@@ -223,10 +236,10 @@ class Neo:
         """
 
         co_customers = self.free_query(query)
-        return co_customers  # type: ignore
+        return co_customers
     # End of operations (c) functions
     
-    # Start of operations (d) functions TO BE TESTED
+    # Start of operations (d) functions DONE
     def extend_neo(self)-> None:
         """ Extend the logical model that you have stored in the NOSQL database by introducing the following information:
             Each transaction should be extended with:
@@ -311,7 +324,7 @@ class Neo:
     # End of operations (d) functions
     
     # Start of operations (e) functions
-    def get_transactions_per_period(self, dt_start: date, dt_end: date)-> dict[str, list[Transaction]]:
+    def get_transactions_per_period(self, dt_start: date, dt_end: date)-> DataFrame:
         """ Get the transactions that occurred in each period of the day
             
             Args:
@@ -322,17 +335,17 @@ class Neo:
                 A dict representing the transactions that occurred in each period of the day
         """
         query = f"""
-        MATCH (t:Transaction)
+        MATCH ()-[t:Transaction]-()
         WHERE 
         datetime(t.TX_DATETIME) >= datetime({{epochMillis: apoc.date.parse('{dt_start}', 'ms', 'yyyy-MM-dd HH:mm:ss')}})
         AND 
         datetime(t.TX_DATETIME) <= datetime({{epochMillis: apoc.date.parse('{dt_end}', 'ms', 'yyyy-MM-dd HH:mm:ss')}})
         RETURN t.PERIOD_OF_DAY, collect(t) as transactions_per_period
         """
-        
+
         transactions_per_period = self.free_query(query)
         return transactions_per_period
-    def get_fraudolent_transactions_per_period(self, dt_start: date, dt_end: date)-> dict[str, list[Transaction]]:
+    def get_fraudolent_transactions_per_period(self, dt_start: date, dt_end: date)-> DataFrame:
         """ Get the fraudulent transactions that occurred in each period of the day and the average number of transactions
             
             Args:
@@ -343,13 +356,14 @@ class Neo:
                 A dict representing the fraudulent transactions that occurred in each period of the day and the average number of transactions
         """
         query = f"""
-        MATCH (t:Transaction)
+        MATCH ()-[t:Transaction]-()
         WHERE 
         datetime(t.TX_DATETIME) >= datetime({{epochMillis: apoc.date.parse('{dt_start}', 'ms', 'yyyy-MM-dd HH:mm:ss')}}) 
         AND 
-        datetime(t.TX_DATETIME) <= datetime({{epochMillis: apoc.date.parse('{dt_end}', 'ms', 'yyyy-MM-dd HH:mm:ss')}}) '
-        AND t.IS_FRAUD = true
-        RETURN t.PERIOD_OF_DAY, collect(t) as fraudulent_transactions, avg(count(t)) as average_number_of_transactions
+        datetime(t.TX_DATETIME) <= datetime({{epochMillis: apoc.date.parse('{dt_end}', 'ms', 'yyyy-MM-dd HH:mm:ss')}})
+        AND t.TX_FRAUD = true
+        WITH t.PERIOD_OF_DAY as period_of_day, collect(t) as fraudulent_transactions, count(t) as tn_per_period_of_the_day
+        RETURN period_of_day, fraudulent_transactions, avg(tn_per_period_of_the_day) as average_number_of_transactions
         """
         
         result = self.free_query(query)
@@ -357,15 +371,30 @@ class Neo:
 
 if __name__ == "__main__":
     greeter = Neo()
-    # This query shows nothing as a result, but don't worry and have a look at the db
-    # There are a lot of costumer with small transactions number but large spending amount and viceversa, so....
-    # greeter.get_customer_under_average(datetime(2019, 1, 1), datetime(2019, 2, 1))
-    
-    # This query shows fraudolent transaction on the terminal 5 in the period between 2019-01-01 and 2019-02-01!
-    # and them are marked as fraudolent in the field of the relationship
-    #greeter.get_fraudolent_transactions("5",datetime(2019, 1, 1), datetime(2019, 2, 1))
-    
-    # This query shows up the co-customer-relationships of degree 2 for the user 63
-    # co_customers = greeter.get_co_customer_relationships_of_degree_k(63, 2)
+    try:
+        # This query shows nothing as a result, but don't worry and have a look at the db
+        # There are a lot of costumer with small transactions number but large spending amount and viceversa, so....
+        # greeter.get_customer_under_average(datetime(2019, 1, 1), datetime(2019, 2, 1))
+        
+        # This query shows fraudolent transaction on the terminal 5 in the period between 2019-01-01 and 2019-02-01!
+        # and them are marked as fraudolent in the field of the relationship
+        #greeter.get_fraudolent_transactions("5",datetime(2019, 1, 1), datetime(2019, 2, 1))
+        
+        # This query shows up the co-customer-relationships of degree 2 for the user 63
+        # co_customers = greeter.get_co_customer_relationships_of_degree_k(63, 2)
 
-    greeter.close()
+        # This query extends the db with the period of the day, the kind of product and the feeling of security with the customer friends relationship
+        # greeter.extend_neo()
+
+        # This query shows the transactions per period of the day in a given period of time
+        tns = greeter.get_transactions_per_period(datetime(2019, 1, 1), datetime(2019, 2, 1))
+        print(f'tns type: {tns["transactions_per_period"]}')
+
+        # This query shows the fraudolent transactions per period of the day in a given period of time
+        # ftns = greeter.get_fraudolent_transactions_per_period(datetime(2019, 1, 1), datetime(2019, 2, 1))
+        # print(f'ftns type: {ftns}')
+        
+    except Exception as e:
+        print(f'An exception occured: {e}')
+    finally:
+        greeter.close()
