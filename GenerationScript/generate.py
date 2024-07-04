@@ -4,6 +4,9 @@ from generate_dataset import generate_dataset
 import os
 import datetime
 import csv
+import locale
+
+locale.setlocale(locale.LC_ALL, 'en_US.UTF-8')
 
 def create_dir(dirname: str):
     if not os.path.exists(dirname):
@@ -23,7 +26,7 @@ def clean_csv(filepath: str):
     
 # 5000 10000 183 are, more or less, 100mb of data
 
-args_num:dict = {0: [1150, 100, 1095]}#, 1: [2300, 200, 1095], 2: [6300, 800, 1095]}
+args_num:dict = {0: [100, 25, 730] }# {0: [1150, 100, 1095], 1: [2300, 200, 1095], 2: [6300, 800, 1095]}
 
 for key, value in args_num.items():
     # Generare dataset for the three tables

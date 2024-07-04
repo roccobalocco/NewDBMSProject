@@ -41,8 +41,8 @@ class Neo:
                 create_statement = """
                 CREATE (:Customer {
                     CUSTOMER_ID: toInteger(line.CUSTOMER_ID),
-                    x_customer_id: line.x_customer_id,
-                    y_customer_id: line.y_customer_id,
+                    x_customer_id: toFloat(line.x_customer_id),
+                    y_customer_id: toFloat(line.y_customer_id),
                     mean_amount: toFloat(line.mean_amount),
                     std_amount: toFloat(line.std_amount),
                     mean_nb_tx_per_day: toFloat(line.mean_nb_tx_per_day),
@@ -54,8 +54,8 @@ class Neo:
                 create_statement = """
                 CREATE (:Terminal {
                     TERMINAL_ID: toInteger(line.TERMINAL_ID),
-                    x_terminal_id: line.x_terminal_id,
-                    y_terminal_id: line.y_terminal_id
+                    x_terminal_id: toFloat(line.x_terminal_id),
+                    y_terminal_id: toFloat(line.y_terminal_id)
                 })
                 """
             case _:

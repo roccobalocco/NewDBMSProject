@@ -5,25 +5,25 @@ import threading
 conn = neo.Neo()
 
 csv_links = [
-    'https://docs.google.com/spreadsheets/d/e/2PACX-1vQBnQLFLdfWSFhd_to3HMDyJdQ4qupuzuWeftvJdMUBAthFqreUstKsHZdk0E-UnUTDyIClDrNAlO1l/pub?gid=1279874191&single=true&output=csv', # customers 
-    'https://docs.google.com/spreadsheets/d/e/2PACX-1vR--1SpqbVMo4_18oRvVGtSgHBMnbQ_4i53QZrFUxYAVd9spQwe9m1jBs649mVG5_gav0q9PKZVrAdo/pub?gid=1649816939&single=true&output=csv', # terminals 
+    'https://docs.google.com/spreadsheets/d/e/2PACX-1vRO0xjWbbTnq8sHY-pkKeWI7W1BfXab-9-qgw2WAqDtKtqJK2fffd6qbEjsKg-0Kj8smec7jo6RXwgv/pub?gid=1920686016&single=true&output=csv', # customers 
+    'https://docs.google.com/spreadsheets/d/e/2PACX-1vRmNHkcX5rYI_lx8LGRK-_d6pm0e5pBgtn7VwWfgq2k2yS3767iD-Zq-_jX_2zrVF6YvWcPc6mHEIjj/pub?gid=641078959&single=true&output=csv', # terminals 
 ]
 
-conn.import_csv(csv_links[0], neo.FileType.CUSTOMERS)
-conn.import_csv(csv_links[1], neo.FileType.TERMINALS)
+# conn.import_csv(csv_links[0], neo.FileType.CUSTOMERS)
+# conn.import_csv(csv_links[1], neo.FileType.TERMINALS)
 
 def relationship_creator(rel_lines:list[str],i:int):
     print("Starting thread {i}".format(i=i))
     for line in rel_lines:
-        columns = line.split(';')
+        columns = line.split(',')
         statement = f"""
-        MATCH (cc:Customer {{CUSTOMER_ID: {columns[2]}}}), (tt:Terminal {{TERMINAL_ID: {columns[3]}}})
+        MATCH (cc:Customer {{CUSTOMER_ID: '{columns[3]}'}}), (tt:Terminal {{TERMINAL_ID: '{columns[4]}'}})
         CREATE (cc) -[tr:Transaction {{
             TRANSACTION_ID: toInteger({columns[0]}),
-            TX_DATETIME:  datetime({{epochMillis: apoc.date.parse('{columns[1]}', 'ms', 'yyyy-MM-dd HH:mm:ss')}}),
-            TX_AMOUNT: toFloat({columns[4]}),
-            TX_TIME_SECONDS: toInteger({columns[5]}),
-            TX_TIME_DAYS: toInteger({columns[6]}),
+            TX_DATETIME:  datetime({{epochMillis: apoc.date.parse('{columns[6]}', 'ms', 'yyyy-MM-dd HH:mm:ss')}}),
+            TX_AMOUNT: toFloat({columns[5]}),
+            TX_TIME_SECONDS: toInteger({columns[1]}),
+            TX_TIME_DAYS: toInteger({columns[2]}),
             TX_FRAUD: toBoolean({columns[7]}),
             TX_FRAUD_SCENARIO: toInteger({columns[8]})
             }}]-> (tt);
@@ -40,13 +40,13 @@ def relationship_saver(rel_lines:list[str],i:int):
     for line in rel_lines:
         columns = line.split(';')
         statements += f"""
-        MATCH (cc:Customer {{CUSTOMER_ID: '{columns[2]}'}}), (tt:Terminal {{TERMINAL_ID: '{columns[3]}'}})
+        MATCH (cc:Customer {{CUSTOMER_ID: '{columns[3]}'}}), (tt:Terminal {{TERMINAL_ID: '{columns[4]}'}})
         CREATE (cc) -[tr:Transaction {{
             TRANSACTION_ID: toInteger({columns[0]}),
-            TX_DATETIME:  datetime({{epochMillis: apoc.date.parse('{columns[1]}', 'ms', 'yyyy-MM-dd HH:mm:ss')}}),
-            TX_AMOUNT: toFloat({columns[4]}),
-            TX_TIME_SECONDS: toInteger({columns[5]}),
-            TX_TIME_DAYS: toInteger({columns[6]}),
+            TX_DATETIME:  datetime({{epochMillis: apoc.date.parse('{columns[6]}', 'ms', 'yyyy-MM-dd HH:mm:ss')}}),
+            TX_AMOUNT: toFloat({columns[5]}),
+            TX_TIME_SECONDS: toInteger({columns[1]}),
+            TX_TIME_DAYS: toInteger({columns[2]}),
             TX_FRAUD: toBoolean({columns[7]}),
             TX_FRAUD_SCENARIO: toInteger({columns[8]})
             }}]-> (tt);
@@ -84,15 +84,15 @@ def file_merger(file_extension:str):
 def file_opener(file_name):
     with open(file_name, 'r') as file:
         try:
-            lines = file.readlines()[1:200000]  # Discard the first line (header) and limit the number of lines due to the free tier!
+            lines = file.readlines()[1:25810]  # Discard the first line (header) and limit the number of lines due to the free tier!
             create_statement = ''
             print('Starting to read the line of {file}, preparing {numRel} relationships'.format(file=file_name, numRel=len(lines)))
 
             #Thread section:
-            list_splitter = [i * 2000 for i in range(1, 101)]
-            list_splitter.append(200000)
+            list_splitter = [i * 1000 for i in range(1, 24)]
+            list_splitter.append(25810)
             threads = []
-            for i in range(1, 101):
+            for i in range(1, 24):
                 # To save on the db really slow
                 thread = threading.Thread(target=relationship_creator, args=(lines[list_splitter[i-1]:list_splitter[i]],i,))
                 # To save into cql files using threads
