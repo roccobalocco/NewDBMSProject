@@ -372,6 +372,8 @@ class Neo:
 if __name__ == "__main__":
     greeter = Neo()
     try:
+        print('Start of execution')
+
         # This query shows nothing as a result, but don't worry and have a look at the db
         # There are a lot of costumer with small transactions number but large spending amount and viceversa, so....
         # greeter.get_customer_under_average(datetime(2019, 1, 1), datetime(2019, 2, 1))
@@ -387,13 +389,14 @@ if __name__ == "__main__":
         # greeter.extend_neo()
 
         # This query shows the transactions per period of the day in a given period of time
-        tns = greeter.get_transactions_per_period(datetime(2019, 1, 1), datetime(2019, 2, 1))
-        print(f'tns type: {tns["transactions_per_period"]}')
+        # tns = greeter.get_transactions_per_period(datetime(2019, 1, 1), datetime(2019, 2, 1))
+        # print(f'tns:\n {tns.head()}')
 
         # This query shows the fraudolent transactions per period of the day in a given period of time
         # ftns = greeter.get_fraudolent_transactions_per_period(datetime(2019, 1, 1), datetime(2019, 2, 1))
-        # print(f'ftns type: {ftns}')
-        
+        # print(f'ftns:\n {ftns.head()}')
+
+        print('End of execution')
     except Exception as e:
         print(f'An exception occured: {e}')
     finally:
