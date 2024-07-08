@@ -164,6 +164,8 @@ The loading process involves two (or three) different techniques:
     It also involves thread, but not this much as the first method, for each thread I create a temporary file, when all of them have finished the execution I merge all these files into a single one.
 
 ```python
+conn = neo.Neo()
+
 csv_links = [
     'https://docs.google.com/customerCSV', 
     'https://docs.google.com/terminalCSV',  
@@ -255,3 +257,386 @@ The only notable thing is the conversion that Neo4J offer natively into a large 
 
 ```
 
+The function `relationship_saver` simply build the statement for the creation of a relationship in Neo4J and then exploit the `free_query` function to execute that statement.
+
+The execution is sequential due to the impossibility of executing more statements at once outside the Neo4J console, however this is mitigated by the use of threads.	
+
+```python
+def relationship_creator(rel_lines:list[str],i:int):
+    print("Starting thread {i}".format(i=i))
+    for line in rel_lines:
+        columns = line.split(',')
+        statement = f"""
+        MATCH (cc:Customer {{CUSTOMER_ID: {columns[3]}}}), (tt:Terminal {{TERMINAL_ID: {columns[4]}}})
+        CREATE (cc) -[tr:Transaction {{
+            TRANSACTION_ID: toInteger({columns[0]}),
+            TX_DATETIME:  datetime({{epochMillis: apoc.date.parse('{columns[6]}', 'ms', 'yyyy-MM-dd HH:mm:ss')}}),
+            TX_AMOUNT: toFloat({columns[5]}),
+            TX_TIME_SECONDS: toInteger({columns[1]}),
+            TX_TIME_DAYS: toInteger({columns[2]}),
+            TX_FRAUD: toBoolean({columns[7]}),
+            TX_FRAUD_SCENARIO: toInteger({columns[8]})
+            }}]-> (tt);
+        """
+        # This is inside the for because appareantly the free tier has some issues concatenating create statements of this kind....
+        # It takes a lot of time, really a lot. But my pc have also free time when I am sleeping
+        conn.free_query(statement)
+    print("Ending thread {i}".format(i=i))
+```
+
+## Operation scripts:
+
+I included all the requested operations inside a class called `Neo`, that also includes the connection to the database, the disconnection and two method to execute unspecified statement inside Neo4J.
+
+The connection exploit the environment variables to avoid hard-coding the sensible informations.
+
+The `free_query` method execute an arbitrary statement to then put the results inside a DataFrame, this data structure is easily manipulable and also avoid us the creation of $n$ data structure to contain the results of the requested operations. While the `free_query_single` is a shortcut to the `single()` method provided by `neo4j` library, for the statement with a single result.
+
+All the methods in this class have a documentation, not reported here, that can be easily transformed into `.md` file with [this simple script](https://github.com/roccobalocco/MD_Doc_Gen).
+
+```python
+class Neo:
+
+    def __init__(self):
+        try:
+            print('Trying to open a connection with neo4j')
+            self.driver = GraphDatabase.driver(os.environ['NEO_URI'], auth=(os.environ['NEO_USER'], os.environ['NEO_PSW']))
+            print('Connection with neo4j opened')
+        except:
+            print('Could not open connection with neo4j')
+            
+    def close(self):
+        print('Closing connection with neo4j')
+        self.driver.close()
+    
+    def free_query(self, query)-> DataFrame:
+        pandas_df = self.driver.execute_query(
+            query,
+            result_transformer_=neo4j.Result.to_df
+        )
+        return pandas_df 
+        
+    def free_query_single(self, query):
+        with self.driver.session() as session:
+            result = session.execute_write(self._free_query_single, query)
+            return result
+
+    def import_csv(self, filepath:str, fileType: FileType):
+		# Implementation
+		
+    @staticmethod
+    def _import_csv(tx, filepath:str, create_statement:str):
+        query = f"""
+        LOAD CSV WITH HEADERS FROM '{filepath}' AS line
+        {create_statement}
+        """
+        print(f"Executing query: {query}")  # Print the query for debugging
+        tx.run(query)
+        
+    @staticmethod
+    def _free_query(tx, query) -> DataFrame:
+        pandas_df = tx.execute_query(
+            query,
+            result_transformer_= neo4j.Result.to_df
+        )
+        return pandas_df
+        
+    @staticmethod
+    def _free_query_single(tx, query):
+        result = tx.run(query)
+        return result.single()
+   
+    # Operation a:
+    def get_customer_under_average(self, dt_start: datetime, dt_end: datetime)-> DataFrame:
+		# Implementation
+    
+    def get_period_average_spending_amounts(self, dt_start:date, dt_end:date)-> float:
+		# Implementation
+    
+    def get_period_average_spending_frequency(self, dt_start:date, dt_end:date)-> float:
+		# Implementation
+    
+    # Operation b:
+    def get_fraudolent_transactions(self, terminal_id:str, dt_start:date, dt_end:date)-> DataFrame:
+    	# Implementation
+    
+    def get_terminal_max_import_last_month(self, terminal_id:str, dt_start:date, dt_end:date)-> float:
+    	# Implementation
+        
+	# Operation c:
+    def get_co_customer_relationships_of_degree_k(self, u:int, k:int)-> DataFrame:
+    	# Implementation
+        
+    # Operation d:
+    def extend_neo(self)-> None:
+    	# Implementation
+    
+    def extend_neo_with_period(self)-> None:
+    	# Implementation
+    
+    def extend_neo_with_kind_of_product(self)-> None:
+    	# Implementation
+    
+    def extend_neo_with_feeling_of_security(self)-> None:
+    	# Implementation
+    
+    def connect_buying_friends(self)-> None:
+    	# Implementation
+        
+	# Operation e:
+    
+    def get_transactions_per_period(self, dt_start: date, dt_end: date)-> DataFrame:
+    	# Implementation
+    
+    def get_fraudolent_transactions_per_period(self, dt_start: date, dt_end: date)-> DataFrame:
+    	# Implementation
+    
+```
+
+### Operation a:
+
+> For each customer checks that the spending frequency and the spending amounts of the last month is under the usual spending frequency and the spending amounts for the same period.
+
+To realize this operation I exploit two side methods to retrieve the average spending amount and the average spending frequency of a period. The entire operation was extended to an arbitrary period of time instead of the last month.
+
+Once calculated the two averages I use them into the main query to retrieve all the Customers that are under the average of spending amount and average of spending frequency.
+
+Here can be seen the utility provided by the `free_query_single`, that exploit the `.single()` method. Once the method return the result we can access them with the string decided in the return statement of our query.
+
+```python
+def get_customer_under_average(self, dt_start: datetime, dt_end: datetime)-> DataFrame:
+    avg_spending_amount = self.get_period_average_spending_amounts(dt_start, dt_end)
+    avg_spending_frequency = self.get_period_average_spending_frequency(dt_start, dt_end)
+    print('avg_spending_amount:', avg_spending_amount, 'avg_spending_frequency:', avg_spending_frequency)
+    query = f"""
+    MATCH (c:Customer)  -[t:Transaction]-> (:Terminal)
+    WHERE datetime(t.TX_DATETIME) >= '{dt_start}' 
+    AND 
+    datetime(t.TX_DATETIME) <= '{dt_end}'
+    WITH c, AVG(t.TX_AMOUNT) as avg_amount, COUNT(t) as nb_tx
+    WHERE avg_amount < {avg_spending_amount} AND nb_tx < {avg_spending_frequency}
+    RETURN collect(c) as customers
+    """
+
+    customers = self.free_query(query)
+    return customers
+def get_period_average_spending_amounts(self, dt_start:date, dt_end:date)-> float:
+    query = f"""
+    MATCH ()-[t:Transaction]->(:Terminal)
+    WHERE 
+        datetime(t.TX_DATETIME).month >= {dt_start.month} 
+        AND 
+        datetime(t.TX_DATETIME).day >= {dt_start.day}
+        AND 
+        datetime(t.TX_DATETIME).month <= {dt_end.month} 
+        AND
+        datetime(t.TX_DATETIME).day <= {dt_end.day}
+    RETURN AVG(t.TX_AMOUNT) as avg_spending_amount
+    """
+
+    avg_spending_amount = self.free_query_single(query)
+    if (avg_spending_amount is None):
+        return 0.
+    return float(avg_spending_amount["avg_spending_amount"])  # type: ignore
+def get_period_average_spending_frequency(self, dt_start:date, dt_end:date)-> float:
+    query = f"""
+    MATCH (c:Customer)-[t:Transaction]->(:Terminal)
+    WHERE
+    datetime(t.TX_DATETIME).month >= {dt_start.month}
+    AND 
+    datetime(t.TX_DATETIME).day >= {dt_start.day}
+    AND 
+    datetime(t.TX_DATETIME).month <= {dt_end.month}
+    AND 
+    datetime(t.TX_DATETIME).day <= {dt_end.day}
+    WITH COUNT(t) as transaction_number, COUNT(DISTINCT c) as customer_number
+    RETURN transaction_number*1.0/customer_number as avg_spending_frequency
+    """
+    avg_spending_frequency  = self.free_query_single(query)
+
+    if (avg_spending_frequency is None):
+        return 0.
+    return float(avg_spending_frequen
+```
+
+### Operation b:
+
+> For each terminal identify the possible fraudulent transactions. 
+>
+> The fraudulent transactions are those whose import is higher than 20% of the maximal import of the transactions executed on the same terminal in the last month.
+
+For this operation I have realized a support method called `get_terminal_max_import_last_month` who permits to retrieve the maximum import on a given terminal in a given period (also here I have extended the last month request to an arbitrary period).
+
+Once retrieved the maximal import of the period I compute the 120% of it, to then use it inside the main query, that identify all the fraudulent transitions based on the comparison of this amount with each amount of the transactions.
+
+```python
+def get_fraudolent_transactions(self, terminal_id:str, dt_start:date, dt_end:date)-> DataFrame:
+    maximal_import = self.get_terminal_max_import_last_month(terminal_id, dt_start, dt_end)
+    maximal_import_20 = maximal_import + (maximal_import * 0.2)
+    query = f"""
+    MATCH (:Terminal {{TERMINAL_ID: {terminal_id}}}) -[t:Transaction]- ()
+    WHERE t.TX_AMOUNT >= {maximal_import_20}
+    RETURN collect(t) as fraudolent_transactions
+    """
+
+    fraudolent_transactions = self.free_query(query)
+    return fraudolent_transactions
+def get_terminal_max_import_last_month(self, terminal_id:str, dt_start:date, dt_end:date)-> float:
+    query = f"""
+    MATCH (t:Terminal {{TERMINAL_ID: {terminal_id}}}) <-[tr:Transaction]- (:Customer)
+    WHERE 
+    datetime(tr.TX_DATETIME) >= datetime({{epochMillis: apoc.date.parse('{dt_start}', 'ms', 'yyyy-MM-dd HH:mm:ss')}})
+    AND 
+    datetime(tr.TX_DATETIME) <= datetime({{epochMillis: apoc.date.parse('{dt_end}', 'ms', 'yyyy-MM-dd HH:mm:ss')}})
+    RETURN MAX(tr.TX_AMOUNT) as max_import
+    """
+
+    maximal_import = self.free_query_single(query)
+    if (maximal_import is None):
+        return 0.
+    return float(maximal_import["max_import"])
+```
+### Operation c:
+
+> Retrieve the *co-customer relationships* of degree $k$
+
+This simple method embeds the request, it takes the user id (`u`) and the degree of the relationship (`k`) in input to then return a DataFrame with the collection of distinct customers that are categorized as *co-customer*  of degree $k$.  
+
+```python
+def get_co_customer_relationships_of_degree_k(self, u:int, k:int)-> DataFrame:
+    query = f"""
+    MATCH (c:Customer {{CUSTOMER_ID: {u}}}) -[:Transaction*{k}]- (co:Customer)
+    WHERE c <> co
+    RETURN collect(DISTINCT co) as co_customers
+    """
+
+    co_customers = self.free_query(query)
+    return co_customers
+```
+### Operation d:
+
+This operation is divided in four methods, called all at once with `extend_neo` that are executed sequentially.
+
+> The period of the day {morning, afternoon, evening, night} in which the transaction has been executed.
+
+`extend_neo_with_period` simply assigns a *period of time* by comparing the hour of execution of the transition.
+
+> The kind of products that have been bought through the transaction {high-tech, food, clothing, consumable, other}
+
+`extend_neo_with_kind_of_product` simply assign a type of product based on the modulo five of `TERMINAL_ID`.
+
+> The feeling of security expressed by the user. This is an integer value between 1 and 5 expressed by the user when conclude the transaction.
+
+`extend_neo_with_feeling_of_security` simply assign a value for feeling of security based on the `rand()` funciton provided by Neo4K.
+
+> Customers that make more than three transactions from the same terminal expressing a similar average feeling of security should be connected as “buying_friends”. Therefore also this kind of relationship should be explicitly stored in the NOSQL database and can be queried. Note, two average feelings of security are considered similar when their difference is lower than 1.
+
+`connect_buying_friends` is a simple method that connect Customers with the *buying_friends* relationship if they both have at least four transactions on the same terminal that express a similar average of feeling of security (the difference between the averages should be lower than one).
+
+The relationships are really written in the database to let a user query them later.
+
+```python
+def extend_neo(self)-> None:
+    self.extend_neo_with_period()
+    self.extend_neo_with_kind_of_product()
+    self.extend_neo_with_feeling_of_security()
+    self.connect_buying_friends()
+
+def extend_neo_with_period(self)-> None:
+    query = """
+    MATCH ()-[t:Transaction]-()
+    WITH distinct t as single_t
+    SET single_t.PERIOD_OF_DAY = CASE
+        WHEN single_t.TX_DATETIME.hour >= 6 AND single_t.TX_DATETIME.hour < 12 THEN 'morning'
+        WHEN single_t.TX_DATETIME.hour >= 18 AND single_t.TX_DATETIME.hour < 24 THEN 'evening'
+        WHEN single_t.TX_DATETIME.hour >= 12 AND single_t.TX_DATETIME.hour < 18 THEN 'afternoon'
+        ELSE 'night'
+    END
+    """
+    
+    self.free_query(query)
+
+def extend_neo_with_kind_of_product(self)-> None:
+    query = """
+    MATCH ()-[tt:Transaction]-()
+    WITH distinct tt as t
+    SET t.KIND_OF_PRODUCT = CASE
+        WHEN t.TRANSACTION_ID % 5  = 0 THEN 'high-tech'
+        WHEN t.TRANSACTION_ID % 5  = 1 THEN 'food'
+        WHEN t.TRANSACTION_ID % 5  = 2 THEN 'clothing'
+        WHEN t.TRANSACTION_ID % 5  = 3 THEN 'consumable'
+        ELSE 'other'
+    END
+    return t.KIND_OF_PRODUCT
+    """
+    
+    self.free_query(query)
+    
+def extend_neo_with_feeling_of_security(self)-> None:
+    query = """
+    MATCH ()-[tt:Transaction]-()
+    WITH distinct tt as t
+    SET t.FEELING_OF_SECURITY = toInteger(rand() * 5) + 1
+    """
+    
+    self.free_query(query)
+
+def connect_buying_friends(self)-> None:
+    query = """
+    MATCH (c1:Customer)-[tc1:Transaction]->(terminal:Terminal)<-[tc2:Transaction]-(c2:Customer)
+    WHERE c1.CUSTOMER_ID <> c2.CUSTOMER_ID 
+    WITH terminal.TERMINAL_ID AS terminal_id, count(distinct tc1) as tnc1_num, c1, count(distinct tc2) as tnc2_num, c2, 
+        AVG(tc1.FEELING_OF_SECURITY) AS tc1_avg_fos, AVG(tc2.FEELING_OF_SECURITY) AS tc2_avg_fos
+    WHERE tnc1_num > 3 and tnc2_num > 3 AND abs(tc1_avg_fos - tc2_avg_fos) < 1
+    CREATE (c1)-[:BUYING_FRIEND]->(c2)
+    """
+    
+    self.free_query(query)
+```
+
+### Operation e:
+
+> For each period of the day identifies the number of transactions that occurred in that period,
+> and the average number of fraudulent transactions.
+
+I have divided this operation in two distinct methods and I also extend the method to let a user indicate a period of time.
+
+`get_transactions_per_period`  retrieve all the transactions happened in a period divided into the different values of period of the day in a DataFrame. 
+
+`transactions_per_period` retrieve all the fraudulent transactions happened in a period divided into the different values of period of the day. The recognition of a fraudulent transaction exploit, here, the `TX_FRAUD` property, to avoid the computation of the operation **b** that would cost a lot of performance and can depend on the considered period.
+
+```python
+def get_transactions_per_period(self, dt_start: date, dt_end: date)-> DataFrame:
+    query = f"""
+    MATCH ()-[t:Transaction]-()
+    WHERE 
+    datetime(t.TX_DATETIME) >= datetime({{epochMillis: apoc.date.parse('{dt_start}', 'ms', 'yyyy-MM-dd HH:mm:ss')}})
+    AND 
+    datetime(t.TX_DATETIME) <= datetime({{epochMillis: apoc.date.parse('{dt_end}', 'ms', 'yyyy-MM-dd HH:mm:ss')}})
+    RETURN t.PERIOD_OF_DAY, collect(t) as transactions_per_period
+    """
+
+    transactions_per_period = self.free_query(query)
+    return transactions_per_period
+def get_fraudolent_transactions_per_period(self, dt_start: date, dt_end: date)-> DataFrame:
+    query = f"""
+    MATCH ()-[t:Transaction]-()
+    WHERE 
+    datetime(t.TX_DATETIME) >= datetime({{epochMillis: apoc.date.parse('{dt_start}', 'ms', 'yyyy-MM-dd HH:mm:ss')}}) 
+    AND 
+    datetime(t.TX_DATETIME) <= datetime({{epochMillis: apoc.date.parse('{dt_end}', 'ms', 'yyyy-MM-dd HH:mm:ss')}})
+    AND t.TX_FRAUD = true
+    WITH t.PERIOD_OF_DAY as period_of_day, collect(t) as fraudulent_transactions, count(t) as tn_per_period_of_the_day
+    RETURN period_of_day, fraudulent_transactions, avg(tn_per_period_of_the_day) as average_number_of_transactions
+    """
+
+    result = self.free_query(query)
+    return result
+```
+
+## Notes:
+
+- All the code showed in this document can be see in [this repository](https://github.com/roccobalocco/NewDBMSProject).
+- For the realization of the project I used the free tier of Neo4J.
+- For the diagrams I used [draw.io](https://www.drawio.com/) and [Star UML](https://www.staruml.io).
+- I tried to use as many types as possible even if I am using python, to have better readability and code awareness (or maybe, I do not like untyped languages)
