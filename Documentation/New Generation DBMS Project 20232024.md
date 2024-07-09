@@ -456,7 +456,7 @@ def get_period_average_spending_frequency(self, dt_start:date, dt_end:date)-> fl
 
     if (avg_spending_frequency is None):
         return 0.
-    return float(avg_spending_frequen
+    return float(avg_spending_frequency["avg_spending_frequency"]
 ```
 
 ### Operation b:
@@ -633,6 +633,62 @@ def get_fraudolent_transactions_per_period(self, dt_start: date, dt_end: date)->
     result = self.free_query(query)
     return result
 ```
+
+## Performances:
+
+### Operation a:
+
+The performance of this operation will be impacted by how well the data is indexed; the key elements to index are:
+
+- `TX_DATETIME` to apply a faster filter by date
+- `Customer` nodes to improve performance when retrieving and aggregating data related to this entity
+
+Indexing `TX_DATETIME` will be a good choice because the queries calculate the averages scanning through the date.
+
+The performance of this queries is also impacted by the number of transaction executed on the given period and the number of Customer and Terminal that are present in the database, however the main bottleneck will be the Transaction relationship because (I assume) that his number will be really huge if compared in a period that is at least one month long. (this is because, usually, a person do a transaction *at least* once a month).
+
+### Operation b:
+
+Also the performance of this operation can be significantly impacted by indexing the right elements, that  are:
+
+- `TX_DATETIME` to apply a faster filter by date	
+- `TERMINAL_ID` to allow quickly lookup operations
+
+### Operation c:
+
+In this operation the performance can vary a lot depending on the degree that a user choose and by the structure and size of the dataset. 
+It is important to consider that with highly interconnected datasets this operation can have an exponential growth in the number of paths traversed.
+Indexing the Customer node and the Transaction relationships can significantly improve the efficiency of the traversal operations.
+
+Limiting the depth can be a good strategy to ensure a minimum of performance, as suggested in the operation description.
+
+Also caching the results for frequently queried customers and degrees can reduce repeated computations, but we have to write the relationship on the database, maybe with a label that describe the depth.
+
+### Operation d:
+
+As usual indexing will be really important to ensure a good level of performance also in this operation, the key elements to index are:
+
+- `TX_DATETIME` and `TRANSACTION_ID` to improve filtering and set operations
+- `CUSTOMER_ID` to improve performance when creating relationships
+
+Also cache intermediate results can be a game changing decision, at least for frequently accessed data, in order to reduce repeated computations.
+
+### Operation e:
+
+Again, indexing will be crucial even on this operation, especially on:
+
+- `TX_DATETIME` to ensure efficient filtering by date
+- `TX_FRAUD` to easily find the fraudulent transactions
+
+<hr>
+
+**Batch Processing**:
+
+- Process terminals in batches to reduce memory overhead and avoid long-running transactions for larger datasets.
+
+### Caching results
+
+### Parallel execution
 
 ## Notes:
 
