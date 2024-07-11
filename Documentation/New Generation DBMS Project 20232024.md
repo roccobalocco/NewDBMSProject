@@ -157,11 +157,14 @@ The loading process involves two (or three) different techniques:
 
 - For the customers and terminals I am using the native functionality of Neo4J, that let a user load nodes using a csv file hosted somewhere (gSheets publication in my case).
   So to make it works a user has to upload his `csv` files into Google cloud (or using the import function without the flag *convert*) to then publish them online as `csv`. 
-- For the transactions there are two ways, but both of them involves the use of Python threads:
+  Because of the size of these `csv` files I have not considered the use of APOC.
+- For the transactions there are three ways, but all of them involves the use of Python threads:
   - **Uploading row by row**, this is a really slow process that constraint the use to execute one creation operation at time. The use of threads mitigate a little because the user can parallelize the execution, but doesn't solve the problem.
     However the problem in this case was the period of three years in which the transactions can occur, it leads to a giant file and Google drive cannot support such a oversized file.
   - **Convert the creation into a cypher script**, this method permit to generate the creational operations and store them into a single file to then decide what to do.
     It also involves thread, but not this much as the first method, for each thread I create a temporary file, when all of them have finished the execution I merge all these files into a single one.
+  - **Exploiting the creation scripts with APOC**, this method permit to use the `cql` files that I have created to generate a database call with the APOC method `runMany`, that permits the execution of multiple statements on a single query even if I am not using the Neo4j browser.
+    The removal of this limitation gives a huge performance improvement for the import step.
 
 ```python
 conn = neo.Neo()
@@ -180,21 +183,24 @@ def relationship_saver(rel_lines:list[str],i:int):
     # implementation
 def file_merger(file_extension:str):
     # implementation
-  
+def run_many(path:str):
+	# implementation
 
 def file_opener(file_name):
     with open(file_name, 'r') as file:
         try:
-            lines = file.readlines()[1:200000]  # Discard the first line (header) and limit the number of lines due to the free tier!
+            lines = file.readlines()[1:25810]  # Discard the first line (header) and limit the number of lines due to the free tier!
+            print('Starting to read the line of {file}, preparing {numRel} relationships'.format(file=file_name, numRel=len(lines)))
+
             #Thread section:
-            list_splitter = [i * 2000 for i in range(1, 101)]
-            list_splitter.append(200000)
+            list_splitter = [i * 1000 for i in range(1, 24)]
+            list_splitter.append(25810)
             threads = []
-            for i in range(1, 101):
+            for i in range(1, 24):
                 # To save on the db really slow
-                thread = threading.Thread(target=relationship_creator, args=(lines[list_splitter[i-1]:list_splitter[i]],i,))
+                #thread = threading.Thread(target=relationship_creator, args=(lines[list_splitter[i-1]:list_splitter[i]],i,))
                 # To save into cql files using threads
-                # thread = threading.Thread(target=relationship_saver, args=(lines[list_splitter[i-1]:list_splitter[i]],i,))
+                thread = threading.Thread(target=relationship_saver, args=(lines[list_splitter[i-1]:list_splitter[i]],i,))
                 
                 threads.append(thread)
                 thread.start()
@@ -202,10 +208,23 @@ def file_opener(file_name):
             for thread in threads:
                 thread.join()
             
+            threads = []
+            # To merge all the generated files into a single one
             # file_merger('.cql')
-        except:
-            print('You have finished the free tier :/, maybe')
 
+            # To execute the multiple statements from the file in a single query with a number of threads that reflects the number of files
+            threads = []
+            for i in range(1, 24):
+                arg = f'../simulated-data-raw-50mb/transactionsThread{i}.cql'
+                thread = threading.Thread(target=run_many, args=(arg,))
+                
+                threads.append(thread)
+                thread.start()
+
+            for thread in threads:
+                thread.join()
+        except Exception as e:
+            print(f'You have finished the free tier :/, maybe - \n {e}')
 file_opener('../simulated-data-raw-50mb/transactions.csv')
 
 conn.close()
@@ -265,7 +284,7 @@ The execution is sequential due to the impossibility of executing more statement
 def relationship_creator(rel_lines:list[str],i:int):
     print("Starting thread {i}".format(i=i))
     for line in rel_lines:
-        columns = line.split(',')
+        columns = line.split(';')
         statement = f"""
         MATCH (cc:Customer {{CUSTOMER_ID: {columns[3]}}}), (tt:Terminal {{TERMINAL_ID: {columns[4]}}})
         CREATE (cc) -[tr:Transaction {{
@@ -275,14 +294,34 @@ def relationship_creator(rel_lines:list[str],i:int):
             TX_TIME_SECONDS: toInteger({columns[1]}),
             TX_TIME_DAYS: toInteger({columns[2]}),
             TX_FRAUD: toBoolean({columns[7]}),
-            TX_FRAUD_SCENARIO: toInteger({columns[8]})
-            }}]-> (tt);
+            TX_FRAUD_SCENARIO: toInteger({columns[8]})}}]-> (tt);
         """
         # This is inside the for because appareantly the free tier has some issues concatenating create statements of this kind....
         # It takes a lot of time, really a lot. But my pc have also free time when I am sleeping
-        conn.free_query(statement)
+        conn.free_query_single(statement)
     print("Ending thread {i}".format(i=i))
 ```
+
+The function `run_many` simply open the given file at the given path and read all of its lines, then it builds the Neo4j statement exploiting the APOC function `runMany` without specifying a `Map` of params because the construction of the statements puts in it the right values. At the end the file is removed.
+
+```python
+def run_many(path:str):
+    print(f"Starting to run the file {path}")
+    with open(path, 'r') as file:
+        lines = file.read()
+        query = f'''
+            CALL apoc.cypher.runMany(
+            "{lines}",
+            {{}}
+        );'''
+        file.close()
+        conn.free_query(query)
+
+    print(f"Ending to run the file {path}")
+    os.remove(path)
+```
+
+
 
 ## Operation scripts:
 
@@ -710,6 +749,8 @@ APOC let the users:
 - Running queries with some conditional execution logic that cannot be expressed in Cypher, simulating an if-else structure. It offers `if-else` and `switch case`.
 - Running chyper statement with a given time thresold with  `runTimeboxed`.
 
+I have used APOC `runMany` to import all the Transaction relationships, the description of this process is in the `Loading Script` paragraph above.
+
 ##### Dynamic creating and updating Nodes and Relationships (considered):
 
 APOC also extends Neo4j with common creational operations such as creation of nodes, removal of labels-properties-relativeProperties, setting of properties, creation of link and so on.
@@ -753,4 +794,4 @@ As we can easily imagine, a parallel execution of cypher fragments can slightly 
 - All the code showed in this document can be see in [this repository](https://github.com/roccobalocco/NewDBMSProject).
 - For the realization of the project I used the free tier of Neo4J.
 - For the diagrams I used [draw.io](https://www.drawio.com/) and [Star UML](https://www.staruml.io).
-- I tried to use as many types as possible even if I am using python, to have better readability and code awareness (or maybe, I do not like untyped languages)
+- I tried to specify as many types as possible even if I am using python, to have better readability and code awareness (and also, I do not like untyped languages)

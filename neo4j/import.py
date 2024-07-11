@@ -15,7 +15,7 @@ conn = neo.Neo()
 def relationship_creator(rel_lines:list[str],i:int):
     print("Starting thread {i}".format(i=i))
     for line in rel_lines:
-        columns = line.split(',')
+        columns = line.split(';')
         statement = f"""
         MATCH (cc:Customer {{CUSTOMER_ID: {columns[3]}}}), (tt:Terminal {{TERMINAL_ID: {columns[4]}}})
         CREATE (cc) -[tr:Transaction {{
@@ -37,7 +37,7 @@ def relationship_saver(rel_lines:list[str],i:int):
     statements = ''  # Initialize the statements variable
     
     for line in rel_lines:
-        columns = line.split(',')
+        columns = line.split(';')
         statements += f"""
         MATCH (cc:Customer {{CUSTOMER_ID: {columns[3]}}}), (tt:Terminal {{TERMINAL_ID: {columns[4]}}})
         CREATE (cc) -[tr:Transaction {{
@@ -121,8 +121,10 @@ def file_opener(file_name):
                 thread.join()
             
             threads = []
+            # To merge all the generated files into a single one
             # file_merger('.cql')
 
+            # To execute the multiple statements from the file in a single query with a number of threads that reflects the number of files
             threads = []
             for i in range(1, 24):
                 arg = f'../simulated-data-raw-50mb/transactionsThread{i}.cql'
@@ -135,17 +137,6 @@ def file_opener(file_name):
                 thread.join()
         except Exception as e:
             print(f'You have finished the free tier :/, maybe - \n {e}')
-# Do not try at home, the free tier will explode, only the first of my seven files will reach the node limit!
-# Practically this was an attempt to use gsheets, i have divided my file into several files and tried to operate like this
-# threads = []
-# for i in range(1, 7):
-#     file_path = '../simulated-data-raw-200mb/transactions' + str(i) + '.csv'
-#     thread = threading.Thread(target=file_opener, args=(file_path,))
-#     threads.append(thread)
-#     thread.start()
-
-# for thread in threads:
-#     thread.join()
 
 file_opener('../simulated-data-raw-50mb/transactions.csv')
 
