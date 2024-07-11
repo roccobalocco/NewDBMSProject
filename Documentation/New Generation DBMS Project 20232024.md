@@ -680,15 +680,73 @@ Again, indexing will be crucial even on this operation, especially on:
 - `TX_DATETIME` to ensure efficient filtering by date
 - `TX_FRAUD` to easily find the fraudulent transactions
 
-<hr>
+### Other consideration about improving performance:
 
-**Batch Processing**:
+#### APOC - Awesome Procedures On Chyper:
 
-- Process terminals in batches to reduce memory overhead and avoid long-running transactions for larger datasets.
+I frequently used this *add-on library* for the cast of a string into an apoc datetime type, but there is more to consider about this *awesome* library.
 
-### Caching results
+This library has been split in two parts, a **core** module and an additional one with some external dependencies and experimental features. With the arrive of Neo4j 5 only the core module is officially supported by Neo4j.
 
-### Parallel execution
+The library cover a lot of different topics, but I only want to give a brief explanation about some of them (used or only considered).
+
+##### Data Import (considered):
+
+This part of APOC permits to the users to import data with different methodologies and extensions.
+
+APOC permits to import data in `json`, `csv`, `xml` and compressed file (`zip`, `tar`, etc) and `GraphML` and these files can be uploaded with these protocols: `file`, `http`, `https`, `s3`, `gs` and `hdfs`.
+
+##### Utility for conversions of temporal (used):
+
+APOC offers to the users the possibilities of converting string in different formats into datetime object and also the opposite way.
+
+It also support formatting options for temporal types like date, durations and zoned datetime.
+
+##### Dynamic Chyper Execution (used):
+
+APOC let the users:
+
+- Running fragments of Cypher, using Cypher as a safe, graph-aware, partially compiled scripting language. It supports the executions of writing and reading of fragment with the given parameters and running many different chyper statements each separated by a semicolon (operation not permitted by neo4j standard).
+- Running queries with some conditional execution logic that cannot be expressed in Cypher, simulating an if-else structure. It offers `if-else` and `switch case`.
+- Running chyper statement with a given time thresold with  `runTimeboxed`.
+
+##### Dynamic creating and updating Nodes and Relationships (considered):
+
+APOC also extends Neo4j with common creational operations such as creation of nodes, removal of labels-properties-relativeProperties, setting of properties, creation of link and so on.
+
+Most of this extensions include the possibilities of tracking statistics.
+
+#### Batch Processing:
+
+The introduction of batch processing on tedious operations can slightly improve the performance of our workload.
+
+Cypher permits the execution of `PERIODIC COMMIT` during imports to control transaction sizes in memory.
+
+It exploit, once again, APOC:
+
+- `iterate` runs another statements for each item returned by the first one.
+- `commit` runs the given statement in separate transactions until it returns $0$.
+- `rock_n_roll` (APOC Full) runs an action statement in batches over the iterator statement's results in a separate thread.
+
+Each of the methods above can be executed periodically, it can be helpful when we are handling large amounts of data for import, refactoring and so on.
+
+*The batch processing, for example, can be used in our operation (**d**), most of the tasks inside this operation can be executed after the importation of data, so why not consider the use of `iteration`*.
+
+#### Caching results and Query tuning:
+
+For each database Neo4j offers a set of query caches that can be configured as the users wish.
+
+The query cache can be unified between databases.
+
+It is important to notice that before configuring the query cache the users have to tune their query if needed. In fact, Neo4j offers many query options, a planner that exploits a search algorithm to find the execution plan with the lowest cost (default) and it can be unlimited if set as `dp` (without limits on plan search and time), the planner can be also set as `greedy` to reduce the planning time.					
+
+Cypher can also let the users set the *update strategy*, the *expression/operator engine* (default, interpreted or compiled), and so on. [see [link](https://neo4j.com/docs/cypher-manual/current/planning-and-tuning/query-tuning/)].
+
+#### Parallel execution:
+
+Again, APOC (only in the fullest version this time) offers procedures to execute fragments in parallel and  in parallel batches.
+
+As we can easily imagine, a parallel execution of cypher fragments can slightly improve all the operations that the users are gonna executing on the database.
 
 ## Notes:
 

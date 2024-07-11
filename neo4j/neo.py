@@ -179,8 +179,7 @@ class Neo:
             of the maximal import of the transactions executed on the same terminal in the last month
             
             Returns:
-                A dataframe of transactions that are considered fraudolent like this one:
-                `[{'fraudolent_transactions': [({}, 'Transaction', {}), ({}, 'Transaction', {})]}]`
+                A dataframe of transactions that are considered fraudolent.
         """
         maximal_import = self.get_terminal_max_import_last_month(terminal_id, dt_start, dt_end)
         maximal_import_20 = maximal_import + (maximal_import * 0.2)
@@ -345,7 +344,7 @@ class Neo:
 
         transactions_per_period = self.free_query(query)
         return transactions_per_period
-    def get_fraudolent_transactions_per_period(self, dt_start: date, dt_end: date)-> DataFrame:
+        
         """ Get the fraudulent transactions that occurred in each period of the day and the average number of transactions
             
             Args:

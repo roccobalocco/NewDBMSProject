@@ -37,7 +37,7 @@ def relationship_saver(rel_lines:list[str],i:int):
     statements = ''  # Initialize the statements variable
     
     for line in rel_lines:
-        columns = line.split(';')
+        columns = line.split(',')
         statements += f"""
         MATCH (cc:Customer {{CUSTOMER_ID: {columns[3]}}}), (tt:Terminal {{TERMINAL_ID: {columns[4]}}})
         CREATE (cc) -[tr:Transaction {{
@@ -48,16 +48,33 @@ def relationship_saver(rel_lines:list[str],i:int):
             TX_TIME_DAYS: toInteger({columns[2]}),
             TX_FRAUD: toBoolean({columns[7]}),
             TX_FRAUD_SCENARIO: toInteger({columns[8]})
-            }}]-> (tt);
+            }}]-> (tt)
+        RETURN 'ok';
         """
         
-    file_path = "../simulated-data-raw-50mb/transactionsThread" + str(i) + ".cql"
+    file_path = f"../simulated-data-raw-50mb/transactionsThread{i}.cql"
     # Open the file in write mode
     with open(file_path, 'w') as file:
         # Write content to the file
         file.write(statements)
+        file.close()
     print("Ending thread {i}".format(i=i))
-    
+
+def run_many(path:str):
+    print(f"Starting to run the file {path}")
+    with open(path, 'r') as file:
+        lines = file.read()
+        query = f'''
+            CALL apoc.cypher.runMany(
+            "{lines}",
+            {{}}
+        );'''
+        file.close()
+        conn.free_query(query)
+
+    print(f"Ending to run the file {path}")
+    os.remove(path)
+
 def file_merger(file_extension:str):
     # List all the files in the directory
     files = os.listdir('../simulated-data-raw-50mb/')
@@ -78,13 +95,13 @@ def file_merger(file_extension:str):
     with open('../simulated-data-raw-50mb/transactions.cql', 'w') as f:
         # Write the content to the file
         f.write(statements)
+        f.close()
   
 
 def file_opener(file_name):
     with open(file_name, 'r') as file:
         try:
             lines = file.readlines()[1:25810]  # Discard the first line (header) and limit the number of lines due to the free tier!
-            create_statement = ''
             print('Starting to read the line of {file}, preparing {numRel} relationships'.format(file=file_name, numRel=len(lines)))
 
             #Thread section:
@@ -93,9 +110,9 @@ def file_opener(file_name):
             threads = []
             for i in range(1, 24):
                 # To save on the db really slow
-                thread = threading.Thread(target=relationship_creator, args=(lines[list_splitter[i-1]:list_splitter[i]],i,))
+                #thread = threading.Thread(target=relationship_creator, args=(lines[list_splitter[i-1]:list_splitter[i]],i,))
                 # To save into cql files using threads
-                #thread = threading.Thread(target=relationship_saver, args=(lines[list_splitter[i-1]:list_splitter[i]],i,))
+                thread = threading.Thread(target=relationship_saver, args=(lines[list_splitter[i-1]:list_splitter[i]],i,))
                 
                 threads.append(thread)
                 thread.start()
@@ -103,9 +120,21 @@ def file_opener(file_name):
             for thread in threads:
                 thread.join()
             
+            threads = []
             # file_merger('.cql')
-        except:
-            print('You have finished the free tier :/, maybe')
+
+            threads = []
+            for i in range(1, 24):
+                arg = f'../simulated-data-raw-50mb/transactionsThread{i}.cql'
+                thread = threading.Thread(target=run_many, args=(arg,))
+                
+                threads.append(thread)
+                thread.start()
+
+            for thread in threads:
+                thread.join()
+        except Exception as e:
+            print(f'You have finished the free tier :/, maybe - \n {e}')
 # Do not try at home, the free tier will explode, only the first of my seven files will reach the node limit!
 # Practically this was an attempt to use gsheets, i have divided my file into several files and tried to operate like this
 # threads = []

@@ -5,9 +5,9 @@ from generate_dataset import generate_dataset
 
 
 (customer_profiles_table, terminal_profiles_table, transactions_df)=\
-    generate_dataset(n_customers = 250, 
-                    n_terminals = 500, 
-                    nb_days= 90, 
+    generate_dataset(n_customers = 10, 
+                    n_terminals = 4, 
+                    nb_days= 7, 
                     start_date="2018-04-01", 
                     r=5)
 
