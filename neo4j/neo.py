@@ -493,7 +493,7 @@ class Neo:
 
         result = self.free_query(neo4j_query)
         return result
-
+    # End of operations (e) functions
 if __name__ == "__main__":
     greeter = Neo()
     try:
@@ -508,17 +508,17 @@ if __name__ == "__main__":
         # customers = greeter.get_customer_under_average(datetime(2019, 1, 1), datetime(2019, 2, 1))
         # print(f'customers:\n {customers.head()}')
         
-        # This query shows fraudolent transaction on the terminal 5 in the period between 2019-01-01 and 2019-02-01!
+        # This query shows fraudolent transaction on the terminal 10 in the period between 2019-01-01 and 2019-02-01!
         # and them are marked as fraudolent in the field of the relationship
-        fraudulent_tns = greeter.get_fraudolent_transactions("5",datetime(2019, 1, 1), datetime(2019, 2, 1))
-        print(f'fraudulent_tns:\n {fraudulent_tns.head()}')
+        # fraudulent_tns = greeter.get_fraudolent_transactions("10",datetime(2019, 1, 1), datetime(2019, 2, 1))
+        # print(f'fraudulent_tns:\n {fraudulent_tns.head()}')
         
         # This query shows up the co-customer-relationships of degree 2 for the user 63
-        co_customers = greeter.get_co_customer_relationships_of_degree_k(63, 2)
-        print(f'co_customers:\n {co_customers.head()}')
+        # co_customers = greeter.get_co_customer_relationships_of_degree_k(63, 2)
+        # print(f'co_customers:\n {co_customers.head()}')
 
         # This query extends the db with the period of the day, the kind of product and the feeling of security with the customer friends relationship
-        # greeter.extend_neo()
+        greeter.extend_neo()
 
         # This query shows the transactions per period of the day in a given period of time
         # tns = greeter.get_transactions_per_period(datetime(2019, 1, 1), datetime(2019, 2, 1))
