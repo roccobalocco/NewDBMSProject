@@ -1,32 +1,32 @@
 # New Generation DBMS Project 2023/2024:
 
-For the realization of this project I have choose to use Neo4J, the choice of a Graph Database is due to the value that the relationship assumed in the considered dataset and to some of the operations that are needed.
+For the realization of this project I have chosen to use Neo4J. The choice of a Graph Database is due to the importance of relationships in the dataset and the specific operations that are required.
 
 ## Models:
 
 The simulator generate three different tables:
 
-- **Customer**, that doesn't hold any classical information (like the name, surname, etc) about the person that it represents, but instead has a more pragmatical way of describe it with a *unique identifier*, the *geographical location*, the *spending frequency* and the *spending amounts*
+- **Customer**, that doesn't hold any classical information (like the name, surname, etc) about the person that it represents. Instead, it describe the customer with a *unique identifier*, *geographical location*, *spending frequency* and  *spending amounts*
 - **Terminal**, that holds only the information about his *geographical location*
-- **Transaction**, that connects a **Customer** and **Terminal**, holding the information about the buying action. So transaction contains the *customer identifier*, the *terminal identifier*, the *amount of the transaction*, the *date in which the transaction occurred* and an optional field that marks a **Transaction** as *fraudulent*
+- **Transaction**, that connects a **Customer** and **Terminal**, holding the information about the buying action. It contains contains the *customer identifier*, *terminal identifier*, *amount of the transaction*, *date of the transaction* and an optional field that marks a **Transaction** as *fraudulent*
 
 ### Conceptual Model:
 
-The conceptual model is pretty simple, it lists the three entities as we see them in the dataset, connecting them via relationship of (1:n) kind.
+The conceptual model is straightforward; it lists the three entities as they appear in the dataset, connecting them via one-to-many relationships.
 
-So there will be a **Customer** that can make many **Transactions** and each of them referrer to one **Terminal**.
+A **Customer** can make many **Transactions**, and each **Transaction** refers to one **Terminal**.
 
 ![image-20240704144009187](/home/pietro/.var/app/io.typora.Typora/config/Typora/typora-user-images/image-20240704144009187.png)
 
 ### Logical Model:
 
-The initial columns are the same proposed by the simulator.
+it defines the structure of the dataset, maintaining the initial columns as proposed by the simulator.
 
 ![image-20240704152502540](./assets/image-20240704152502540.png)
 
 ### Physical Model:
 
-In the physical model I have added the types, the primary key and the foreign keys at the logical model.
+It enhances the logical model by specifying data types, primary keys, and foreign keys. This detailed schema ensures that the database can be efficiently implemented and queried.
 
 ![image-20240704153211345](./assets/image-20240704153211345.png)
 
@@ -36,7 +36,7 @@ The **Transaction** entity has been transformed into an *association class* beca
 
 ![image-20240704162745584](./assets/image-20240704162745584.png)
 
-By considering the operations that are going to extend our entities the class diagram has been transformed into this one, who add three new properties to **Transaction**, that are:
+Considering the operations that will extend our entities, the class diagram has been updated to include three new properties in **Transaction**:
 
 - `KIND_OF_PRODUCT`
 - `FEELING_OF_SECURITY`
@@ -46,23 +46,23 @@ By considering the operations that are going to extend our entities the class di
 
 ## Neo4J:
 
-Starting from the last UML Class Diagram, the nodes and the relationships in Neo4J reflect perfectly his structure. In the database we will have the following Nodes:
+Starting from the latest UML Class Diagram, the nodes and relationships in Neo4j reflect its structure perfectly. In the database, we will have the following Nodes:
 
 - `Customer`, with all the properties listed in the diagram
 - `Terminal`, with all the properties listed in the diagram
 
 And the following Relationships:
 
-- `Transaction`, that starts from a `Customer` and a ends to a `Terminal`, with the same properties listed in the diagram
--  `Buying_friends`, that connects two `Customer` without any properties
+- `Transaction`, which starts from a `Customer` and a ends to a `Terminal`, with the same properties listed in the diagram
+-  `Buying_friends`, which connects two `Customer` without any properties
 
-Moreover, the operations request to identify a special relationship between `Customer`, the `Co-customer` relationship; this will be available on call, so it won't be showed in the database, but only on request as result of the request.
+Moreover, operations require identifying a special relationship between `Customers` called the `Co-customer` relationship. This relationship will be available on demand, so it won't be stored in the database but will be computed as needed.
 
 ### Consideration and constraints:
 
 #### Consideration:
 
-I have not changed nothing to the initial dataset in term of properties, neither in terms of data structures, but considering the operations that were given and the NoSQL database chosen there weren't particular changing that were really "mandatory" or "game changing".
+I haven't changed the initial dataset in term of properties or data structures. Given the operations that were required and the chose NoSQL database, there weren't particular changes that were "mandatory" or "game changing".
 
 About the operation, I have to clarify my interpretation for each of them:
 
@@ -70,48 +70,54 @@ About the operation, I have to clarify my interpretation for each of them:
 
    > For each customer checks that the spending frequency and the spending amounts of the last month is under the usual spending frequency and the spending amounts for the same period.
 
-   Get customer under average for spending amounts and frequency of spending in the last month, by comparing them to the average of this period (considering period as the same day&month over all the years registered in the database).
-   The average is computed with all the customers in the database, I am not computing the average of the period for each single customer.
+   Interpretation:
+
+   - Identify customers whose spending frequency and amounts in the last month are below the average for that period (*period*: the same starting day/month and ending day/month over the years)
+   - The average is calculated across all customers in the database, not individually for each customer.
 
 2. Operation **b**:
 
    > For each terminal identify the possible fraudulent transactions. The fraudulent transactions are those whose import is higher than 20% of the maximal import of the transactions executed on the same terminal in the last month.
 
-   Get all the fraudulent transactions that have an import higher than 20% the maximal import of the transactions executed on the same terminal in the last month.
 
-   I am comparing the amount of the transactions executed on a terminal with **the maximal import of the transactions executed in the last month on the same terminal (+20%)**.
+   Interpretation:
+
+   - Retrieve transactions whose amount is **greater than 120% of the highest transaction amount** on the same  terminal in the last month.
 
 3. Operation **e**:
 
    > For each period of the day identifies the number of transactions that occurred in that period,
    > and the average number of fraudulent transactions.
 
-   To identify the fraudulent transactions I will use the property `TX_FRAUD`.
+   Interpretation:
+   
+   - Use the `TX_FRAUD` property to identify fraudulent transactions.
+   - Count transactions and calculate the average number of fraudulent transactions for defined periods of the day.
 
-#### Constraints:
+#### Constraints and Assumptions:
 
-- I have assumed that the transactions marked as fraudulent are really fraudulent under the definition of the term of operation **b**.
-- I have assumed hat the values stored in the customer nodes about the average, the number of terminals, etc are correct.
-- I have assumed that in the generated datasets there are no duplication
-- I am using the identifiers provided from the datasets for comparing nodes when I need to find a specific one, but I haven't substituted the node identifier provided by Neo4J by default
-- I have extended the data as stated in the operation **d** and I have choose to implements the extension in these ways:
-  - For *period of the day* I am considering *morning* between 6 and 12, *afternoon* between 12 and 18, *evening* between 18 and 24 and *night* between 24 and 6
-  - For *kind of products* I am using a generator based on a modulo 5 operations on `TRANSACTION_ID` to assign  the values
-  - For *feeling of security* I am using the `rand` function provided by Neo4J
-- Due to the choice that can be made on the degree of the operation **c** I am not storing the relationship *co-customer* into the database
+- I assumed that the transactions marked as fraudulent are genuinely fraudulent as per the definition in operation **b**.
+- I assumed hat the values stored in the customer nodes about the *averages*, *number of terminals*, etc are correct.
+- I assumed that in the generated datasets there are no duplication.
+- I am using the identifiers provided by the datasets for comparing nodes when I need to find a specific one, but I haven't replaced the default node identifier provided by Neo4j.
+- I have extended the data as stated in the operation **d** and I have choose to implement the extensions as described below:
+  - *Period of the day* defined *morning* between 6 and 12, *afternoon* between 12 and 18, *evening* between 18 and 24 and *night* between 24 and 6
+  - *Kind of products* assigned using a generator based on a modulo 5 operations on `TRANSACTION_ID` to assign  the values
+  - *Feeling of security* assigned using the `rand` function provided by Neo4J
+- The *co-customer* relationship from operation **c** is not stored in the database due to the variability in its implementation.
 
 ## Generation scripts:
 
-This script, cleaned out of imports and definition of functions, shows how I am generating the datasets.
+This script, stripped of imports and function definitions, shows how I generate datasets.
 
-I use a `dict` (`args_num`) to store the different amount of customers, terminals and days for each of the dataset required. Those amounts are going to satisfy the size constraint for them.
+I use a `dict` (`args_num`) to store the different amount of customers, terminals and days for each of the dataset required, ensuring the meet size constraints.
 
-Then I exploit the functions given [by the website linked in the project]( fraud-
-detection-handbook.github.io/fraud-detection-handbook/Chapter_3_GettingStarted/SimulatedDataset.html) to generate the dataframes that are going to be transformed into `csv` files. I haven't changed the initial data, but I have extended the period where the transactions happened to have relevant data to query (3 years, starting from *2018-04-01*).
+Next, I exploit functions given [by the website linked in the project]( fraud-
+detection-handbook.github.io/fraud-detection-handbook/Chapter_3_GettingStarted/SimulatedDataset.html) to create dataframes. These dataframes are then converted into `csv` files, with transaction data spanning three years, strating from starting from *2018-04-01*.
 
-Then I choose the directory where I am gonna store the `csv` files based on the dictionary key and exploit pandas function `to_csv` to save them.
+Based on the dictionary key. I select the the directory where the `csv` files will be stored and exploit pandas function `to_csv` to save them.
 
-The final step is passing through a function that clears the `csv` from the useless index and save the files. A step that can be substituted by the option in the `to_csv` function (`Index=False`).
+The final step consists into passing through a function that clears the `csv` from the useless indexes and save the files. This step that can be replaced by using by the option in the `to_csv` function (`Index=False`).
 
 ```python
 args_num:dict = {0: [1150, 100, 1095], 1: [2300, 200, 1095], 2: [6300, 800, 1095]}
@@ -153,18 +159,18 @@ for key, value in args_num.items():
 
 To have an overview about the loading scripts I have included some pieces of the main one below.
 
-The loading process involves two (or three) different techniques:
+The loading process involves different techniques:
 
-- For the customers and terminals I am using the native functionality of Neo4J, that let a user load nodes using a csv file hosted somewhere (gSheets publication in my case).
-  So to make it works a user has to upload his `csv` files into Google cloud (or using the import function without the flag *convert*) to then publish them online as `csv`. 
-  Because of the size of these `csv` files I have not considered the use of APOC.
-- For the transactions there are three ways, but all of them involves the use of Python threads:
-  - **Uploading row by row**, this is a really slow process that constraint the use to execute one creation operation at time. The use of threads mitigate a little because the user can parallelize the execution, but doesn't solve the problem.
-    However the problem in this case was the period of three years in which the transactions can occur, it leads to a giant file and Google drive cannot support such a oversized file.
-  - **Convert the creation into a cypher script**, this method permit to generate the creational operations and store them into a single file to then decide what to do.
+- For *customers and terminals* I utilize Neo4j's native functionality, which allows users to import nodes using a csv file hosted somewhere (in my case, Google Sheets publication).
+  Users need to upload theri CSV files to Google Drive (or using the import function without the flag *convert*) and then publish them online as `csv`. 
+  Because of the relative modest size of these `csv` files I have not considered using APOC.
+- For the *transactions* I have implemented three ways and all of them involves the use of threads. I haven't used Google Drive because with my choice of parameters this `csv` is too huge to handle.
+  - **Uploading row by row**, this process, while slow, allows for parallel execution using threads to mitigate some of the slowness.
+    However, due to the three-year period in which transactions can occur, the resulting file size can be too large for Google Drive to handle.
+  - **Convert the creation into a cypher script**, this method permit to generate the creation operations and store them into a single file to then decide what to do.
     It also involves thread, but not this much as the first method, for each thread I create a temporary file, when all of them have finished the execution I merge all these files into a single one.
-  - **Exploiting the creation scripts with APOC**, this method permit to use the `cql` files that I have created to generate a database call with the APOC method `runMany`, that permits the execution of multiple statements on a single query even if I am not using the Neo4j browser.
-    The removal of this limitation gives a huge performance improvement for the import step.
+  - **Exploiting the creation scripts with APOC**, this method permit to use the `cql` files previously created to generate a database call with the APOC method `runMany`, that permits the execution of multiple statements on a single query even if I am not using the Neo4j browser.
+    This approach significantly enhances import performance.
 
 ```python
 conn = neo.Neo()
@@ -230,11 +236,11 @@ file_opener('../simulated-data-raw-50mb/transactions.csv')
 conn.close()
 ```
 
-The function `import_csv` is realized into the  `Neo` class (the class that holds all the operations and the connection to the db).
+The `import_csv` function is implemented within the `Neo` class, which manages all operations and database connections.
 
-This is a simple function that create the statement that is going to be executed into the database and execute them in the static function named in the same way.
+This function simplifies the creation of statements to be executed into the database and utilizes static function named in the same way.
 
-The only notable thing is the conversion that Neo4J offer natively into a large range of data types.
+One notable features is Neo4j's native support for converting a wide range of data types.
 
 ```python
     def import_csv(self, filepath:str, fileType: FileType):
@@ -276,9 +282,9 @@ The only notable thing is the conversion that Neo4J offer natively into a large 
 
 ```
 
-The function `relationship_saver` simply build the statement for the creation of a relationship in Neo4J and then exploit the `free_query` function to execute that statement.
+The `relationship_saver` function constructs a statement for creating a relationship in Neo4J and then exploit the `free_query` function to execute that statement.
 
-The execution is sequential due to the impossibility of executing more statements at once outside the Neo4J console, however this is mitigated by the use of threads.	
+Execution is sequential because multiple statements cannot be executed simultaneously outside the Neo4J browser without APOC. The use of threading can mitigate this limitation.	
 
 ```python
 def relationship_creator(rel_lines:list[str],i:int):
@@ -302,7 +308,7 @@ def relationship_creator(rel_lines:list[str],i:int):
     print("Ending thread {i}".format(i=i))
 ```
 
-The function `run_many` simply open the given file at the given path and read all of its lines, then it builds the Neo4j statement exploiting the APOC function `runMany` without specifying a `Map` of params because the construction of the statements puts in it the right values. At the end the file is removed.
+The `run_many` function simply open the given file at the given path and read all of its lines, then it builds the Neo4j statement exploiting the APOC function `runMany` without specifying a `Map` of params because the construction of the statements puts in it the right values. At the end the file is removed.
 
 ```python
 def run_many(path:str):
@@ -325,13 +331,11 @@ def run_many(path:str):
 
 ## Operation scripts:
 
-I included all the requested operations inside a class called `Neo`, that also includes the connection to the database, the disconnection and two method to execute unspecified statement inside Neo4J.
+I have included all the required operations within a class called `Neo`, that also includes the connection to the database, the disconnection and two method to execute unspecified statement inside Neo4J. This approach exploits the environment variables to avoid hard-coding the sensible informations.
 
-The connection exploit the environment variables to avoid hard-coding the sensible informations.
+The `free_query` method executes an arbitrary statement to then put the results inside a DataFrame; this data structure is easily manipulable and also avoid us the creation of $n$ data structure to contain the results of the requested operations. Additionally, `free_query_single` serves as a shortcut to the `single()` method provided by `neo4j` library, for the statement returning a single result.
 
-The `free_query` method execute an arbitrary statement to then put the results inside a DataFrame, this data structure is easily manipulable and also avoid us the creation of $n$ data structure to contain the results of the requested operations. While the `free_query_single` is a shortcut to the `single()` method provided by `neo4j` library, for the statement with a single result.
-
-All the methods in this class have a documentation, not reported here, that can be easily transformed into `.md` file with [this simple script](https://github.com/roccobalocco/MD_Doc_Gen).
+All the methods in this class are documented, not reported here, that can be easily transformed into `.md` file with [this simple script](https://github.com/roccobalocco/MD_Doc_Gen).
 
 ```python
 class Neo:
@@ -436,11 +440,11 @@ class Neo:
 
 > For each customer checks that the spending frequency and the spending amounts of the last month is under the usual spending frequency and the spending amounts for the same period.
 
-To realize this operation I exploit two side methods to retrieve the average spending amount and the average spending frequency of a period. The entire operation was extended to an arbitrary period of time instead of the last month.
+To achieve this, I have developed two side methods to retrieve the *average spending amount* and *average spending frequency* of a period. The entire operation was extended to an arbitrary period of time instead of the last month.
 
 Once calculated the two averages I use them into the main query to retrieve all the Customers that are under the average of spending amount and average of spending frequency.
 
-Here can be seen the utility provided by the `free_query_single`, that exploit the `.single()` method. Once the method return the result we can access them with the string decided in the return statement of our query.
+Here can be seen the utility provided by the `free_query_single`, that exploit the `.single()` method. Once the method returns the result, we can access it using the designated string in the query's return statement.
 
 ```python
 def get_customer_under_average(self, dt_start: datetime, dt_end: datetime)-> DataFrame:
@@ -504,9 +508,9 @@ def get_period_average_spending_frequency(self, dt_start:date, dt_end:date)-> fl
 >
 > The fraudulent transactions are those whose import is higher than 20% of the maximal import of the transactions executed on the same terminal in the last month.
 
-For this operation I have realized a support method called `get_terminal_max_import_last_month` who permits to retrieve the maximum import on a given terminal in a given period (also here I have extended the last month request to an arbitrary period).
+For this operation I have realized a supporting method called `get_terminal_max_import_last_month` that retrieves the maximum import on a given terminal in a given period (extended beyond just the last month).
 
-Once retrieved the maximal import of the period I compute the 120% of it, to then use it inside the main query, that identify all the fraudulent transitions based on the comparison of this amount with each amount of the transactions.
+Once retrieved the maximal import of the period I compute the 120% of this value, to then use it inside the main query, that identifies all the fraudulent transitions based on the comparison of this amount with each amount of the transactions.
 
 ```python
 def get_fraudolent_transactions(self, terminal_id:str, dt_start:date, dt_end:date)-> DataFrame:
@@ -539,7 +543,7 @@ def get_terminal_max_import_last_month(self, terminal_id:str, dt_start:date, dt_
 
 > Retrieve the *co-customer relationships* of degree $k$
 
-This simple method embeds the request, it takes the user id (`u`) and the degree of the relationship (`k`) in input to then return a DataFrame with the collection of distinct customers that are categorized as *co-customer*  of degree $k$.  
+This method embeds the request; it takes the user id (`u`) and the degree of the relationship (`k`) in input to then return a DataFrame with the collection of distinct customers that are categorized as *co-customer*  of degree $k$.  
 
 ```python
 def get_co_customer_relationships_of_degree_k(self, u:int, k:int)-> DataFrame:
@@ -558,21 +562,21 @@ This operation is divided in four methods, called all at once with `extend_neo` 
 
 > The period of the day {morning, afternoon, evening, night} in which the transaction has been executed.
 
-`extend_neo_with_period` simply assigns a *period of time* by comparing the hour of execution of the transition.
+`extend_neo_with_period` assigns a *period of time* by comparing the hour of execution of the transition.
 
 > The kind of products that have been bought through the transaction {high-tech, food, clothing, consumable, other}
 
-`extend_neo_with_kind_of_product` simply assign a type of product based on the modulo five of `TERMINAL_ID`.
+`extend_neo_with_kind_of_product` assigns a type of product based on the modulo five of `TERMINAL_ID`.
 
 > The feeling of security expressed by the user. This is an integer value between 1 and 5 expressed by the user when conclude the transaction.
 
-`extend_neo_with_feeling_of_security` simply assign a value for feeling of security based on the `rand()` funciton provided by Neo4K.
+`extend_neo_with_feeling_of_security` assigns a value for feeling of security based on the `rand()` function provided by Neo4j.
 
 > Customers that make more than three transactions from the same terminal expressing a similar average feeling of security should be connected as “buying_friends”. Therefore also this kind of relationship should be explicitly stored in the NOSQL database and can be queried. Note, two average feelings of security are considered similar when their difference is lower than 1.
 
-`connect_buying_friends` is a simple method that connect Customers with the *buying_friends* relationship if they both have at least four transactions on the same terminal that express a similar average of feeling of security (the difference between the averages should be lower than one).
+`connect_buying_friends` is a method that connect Customers with the *buying_friends* relationship if they both have at least four transactions on the same terminal that express a similar average of feeling of security (the difference between the averages should be lower than one).
 
-The relationships are really written in the database to let a user query them later.
+The relationships are saved into the database to let users query whenever they want.
 
 ```python
 def extend_neo(self)-> None:
@@ -640,9 +644,9 @@ def connect_buying_friends(self)-> None:
 
 I have divided this operation in two distinct methods and I also extend the method to let a user indicate a period of time.
 
-`get_transactions_per_period`  retrieve all the transactions happened in a period divided into the different values of period of the day in a DataFrame. 
+`get_transactions_per_period`  retrieves all the transactions happened in a period divided into the different values of period of the day in a DataFrame. 
 
-`transactions_per_period` retrieve all the fraudulent transactions happened in a period divided into the different values of period of the day. The recognition of a fraudulent transaction exploit, here, the `TX_FRAUD` property, to avoid the computation of the operation **b** that would cost a lot of performance and can depend on the considered period.
+`transactions_per_period` retrieves all the fraudulent transactions happened in a period, divided into the different values of period of the day. The identification of fraudulent transactions leverages the `TX_FRAUD` property. This approach avoids the computation of the operation **b** that would cost a lot of performance and vary by the considered period.
 
 ```python
 def get_transactions_per_period(self, dt_start: date, dt_end: date)-> DataFrame:
@@ -723,45 +727,44 @@ Again, indexing will be crucial even on this operation, especially on:
 
 #### APOC - Awesome Procedures On Chyper:
 
-I frequently used this *add-on library* for the cast of a string into an apoc datetime type, but there is more to consider about this *awesome* library.
+APOC is a powerfull  *add-on library* that I frequently utilize for operations like casting strings to APOC datetime types. However, there are more capabilities to consider about this *awesome* library.
 
-This library has been split in two parts, a **core** module and an additional one with some external dependencies and experimental features. With the arrive of Neo4j 5 only the core module is officially supported by Neo4j.
+APOC consists of two parts: a **core** module and an **additional** module with external dependencies and experimental features. Since Neo4j 5, only the core module is officially supported.
 
-The library cover a lot of different topics, but I only want to give a brief explanation about some of them (used or only considered).
+The library cover a lot of different topics, but I only want to give a brief explanation about some of them (used or just considered).
 
 ##### Data Import (considered):
 
-This part of APOC permits to the users to import data with different methodologies and extensions.
-
-APOC permits to import data in `json`, `csv`, `xml` and compressed file (`zip`, `tar`, etc) and `GraphML` and these files can be uploaded with these protocols: `file`, `http`, `https`, `s3`, `gs` and `hdfs`.
+extensions. It supports importing from `json`, `csv`, `xml`, compressed files (`zip`, `tar`, etc.), and `GraphML`. These files can be uploaded using protocols such as `file`, `http`, `https`, `s3`, `gs`, and `hdfs`.
 
 ##### Utility for conversions of temporal (used):
 
-APOC offers to the users the possibilities of converting string in different formats into datetime object and also the opposite way.
-
-It also support formatting options for temporal types like date, durations and zoned datetime.
+APOC provides utilities for converting strings in different formats into datetime objects and vice versa. It supports formatting options for temporal types such as date, durations, and zoned datetime.
 
 ##### Dynamic Chyper Execution (used):
 
-APOC let the users:
+APOC offers several dynamic Cypher execution features that enhance flexibility and functionality:
 
-- Running fragments of Cypher, using Cypher as a safe, graph-aware, partially compiled scripting language. It supports the executions of writing and reading of fragment with the given parameters and running many different chyper statements each separated by a semicolon (operation not permitted by neo4j standard).
-- Running queries with some conditional execution logic that cannot be expressed in Cypher, simulating an if-else structure. It offers `if-else` and `switch case`.
-- Running chyper statement with a given time thresold with  `runTimeboxed`.
+- *Running fragments of Cypher*, using Cypher as a safe, graph-aware, partially compiled scripting language. It supports the executions of writing and reading of fragment with the given parameters and running many different chyper statements each separated by a semicolon (operation not permitted by neo4j standard).
+- *Running queries with some conditional execution logic* that cannot be expressed in Cypher, simulating an if-else structure. It offers `if-else` and `switch case`.
+- *Running chyper statement with a given time thresold* with `runTimeboxed`.
 
-I have used APOC `runMany` to import all the Transaction relationships, the description of this process is in the `Loading Script` paragraph above.
+I have utilized APOC's `runMany` to import all the Transaction relationships, the description of this process is in the `Loading Script` paragraph above.
 
 ##### Dynamic creating and updating Nodes and Relationships (considered):
 
-APOC also extends Neo4j with common creational operations such as creation of nodes, removal of labels-properties-relativeProperties, setting of properties, creation of link and so on.
+APOC extends Neo4j with robust functionalities for dynamic node and relationship operations, including:
 
-Most of this extensions include the possibilities of tracking statistics.
+- **Node Operations**: APOC facilitates the creation of nodes, removal of labels, properties, and relative properties, as well as setting properties dynamically.
+- **Relationship Operations**: It supports the creation of relationships between nodes and offers capabilities for managing relationships dynamically.
+
+Many of these extensions within APOC include features for tracking statistics and monitoring changes, enhancing the management and performance of graph data within Neo4j.
 
 #### Batch Processing:
 
-The introduction of batch processing on tedious operations can slightly improve the performance of our workload.
+Introducing batch processing on tedious operations can slightly improve the performance of our workload.
 
-Cypher permits the execution of `PERIODIC COMMIT` during imports to control transaction sizes in memory.
+Cypher supports  `PERIODIC COMMIT` during imports to manage transaction sizes in memory efficiently.
 
 It exploit, once again, APOC:
 
@@ -769,29 +772,34 @@ It exploit, once again, APOC:
 - `commit` runs the given statement in separate transactions until it returns $0$.
 - `rock_n_roll` (APOC Full) runs an action statement in batches over the iterator statement's results in a separate thread.
 
-Each of the methods above can be executed periodically, it can be helpful when we are handling large amounts of data for import, refactoring and so on.
+These methods can be executed periodically, which proves beneficial when handling large amounts of data for import, refactoring and so on.
 
-*The batch processing, for example, can be used in our operation (**d**), most of the tasks inside this operation can be executed after the importation of data, so why not consider the use of `iteration`*.
+*For instance, in our Operation (**d**), where tasks can often be performed post-data import, utilizing `apoc.iterate` could streamline processes effectively.*
 
 #### Caching results and Query tuning:
 
-For each database Neo4j offers a set of query caches that can be configured as the users wish.
+Neo4j provides customizable query caches for each database, which can be configured according to user preferences. These caches can be unified across databases for consistent performance optimization.
 
-The query cache can be unified between databases.
+Before configuring query caches, it's important for users to tune their queries. Neo4j offers a variety of query options, including:
 
-It is important to notice that before configuring the query cache the users have to tune their query if needed. In fact, Neo4j offers many query options, a planner that exploits a search algorithm to find the execution plan with the lowest cost (default) and it can be unlimited if set as `dp` (without limits on plan search and time), the planner can be also set as `greedy` to reduce the planning time.					
-
-Cypher can also let the users set the *update strategy*, the *expression/operator engine* (default, interpreted or compiled), and so on. [see [link](https://neo4j.com/docs/cypher-manual/current/planning-and-tuning/query-tuning/)].
+- **Planner Options**: Neo4j's planner uses a search algorithm to find the execution plan with the lowest cost by default. It can be set to `dp` for unlimited plan search time or `greedy` to reduce planning time.
+- **Cypher Settings**: Users can specify the update strategy, choose between default, interpreted, or compiled expression/operator engines, and more. For detailed options, refer to the [Neo4j Cypher manual](https://neo4j.com/docs/cypher-manual/current/planning-and-tuning/query-tuning/).
 
 #### Parallel execution:
 
-Again, APOC (only in the fullest version this time) offers procedures to execute fragments in parallel and  in parallel batches.
+APOC (specifically in its full version) offers procedures to execute Cypher fragments in parallel and in parallel batches. This parallel execution capability can significantly enhance performance across various database operations.
 
-As we can easily imagine, a parallel execution of cypher fragments can slightly improve all the operations that the users are gonna executing on the database.
+<hr>
 
 ## Notes:
 
-- All the code showed in this document can be see in [this repository](https://github.com/roccobalocco/NewDBMSProject).
-- For the realization of the project I used the free tier of Neo4J.
+- All the code showed in this document can be see in [this repository](https://github.com/roccobalocco/NewDBMSProject) or in the `zip` attached within this file.
+- For the realization of the project I used the free tier of Neo4j.
 - For the diagrams I used [draw.io](https://www.drawio.com/) and [Star UML](https://www.staruml.io).
-- I tried to specify as many types as possible even if I am using python, to have better readability and code awareness (and also, I do not like untyped languages)
+- I tried to specify as many types as possible even if I am using python, to have better readability and code awareness (and also, I do not like untyped languages).
+- The consideration of batch processing, query tuning, and parallel execution using APOC were given to specify how this project can be evolved. 
+
+<hr>
+
+Masolini Pietro - Universita' degli Studi di Milano - 2024 - [Github](https://github.com/roccobaloccoo)
+
