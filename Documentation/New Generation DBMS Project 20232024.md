@@ -364,7 +364,7 @@ def run_many(path:str):
 
 I have included all the required operations within a class called `Neo`, that also includes the connection to the database, the disconnection and two method to execute unspecified statement inside Neo4J. This approach exploits the environment variables to avoid hard-coding the sensible informations.
 
-The `free_query` method executes an arbitrary statement to then put the results inside a DataFrame; this data structure is easily manipulable and also avoid us the creation of $n$ data structure to contain the results of the requested operations. Additionally, `free_query_single` serves as a shortcut to the `single()` method provided by `neo4j` library, for the statement returning a single result.
+The `free_query` method executes an arbitrary statement to then put the results inside a DataFrame, bye default the result would be obtained by the `free_query_single` to then return a DataFrame, this because some of the queries return statement; this data structure is easily manipulable and also avoid us the creation of $n$ data structure to contain the results of the requested operations. Additionally, `free_query_single` serves as a shortcut to the `single()` method provided by `neo4j` library, for the statement returning a single result.
 
 All the methods in this class includes documentation, that can be easily transformed into `.md` file with [this simple script](https://github.com/roccobalocco/MD_Doc_Gen).
 
@@ -390,20 +390,26 @@ class Neo:
         print('Closing connection with neo4j')
         self.driver.close()
     
-    def free_query(self, query: te.LiteralString | Query) -> DataFrame:
+    def free_query(self, query: te.LiteralString | Query, directToDF:bool = False) -> DataFrame:
         """ Execute the statement passed as an argument and  return the result as a dataframe
         
             Args:
                 query(te.LiteralString | Query): statement to be executed
+                directToDF(bool): if True the result will be returned as a dataframe, otherwise it will be processed into a dataframe
     
             Returns:
                 A dataframe representing the result of the statement
         """
-        pandas_df = self.driver.execute_query(
-            query,
-            result_transformer_=neo4j.Result.to_df
-        )
-        return pandas_df 
+        
+        if(directToDF):
+            pandas_df = self.driver.execute_query(
+                query,
+                result_transformer_=neo4j.Result.to_df,
+            )
+        else:
+            result = self.free_query_single(query)
+            pandas_df = DataFrame(result)
+        return pandas_df  
         
     def free_query_single(self, query:te.LiteralString | Query):
         """ Execute the statement passed as an argument and return the result as single result
@@ -886,7 +892,7 @@ I have divided this operation in two distinct methods and I also extend the meth
         # Create the Query object
         neo4j_query = Query(text=query, metadata=metadata) #type: ignore
 
-        transactions_per_period = self.free_query(neo4j_query)
+        transactions_per_period = self.free_query(neo4j_query, directToDF=True)
         return transactions_per_period
         
     def get_fraudolent_transactions_per_period(self, dt_start: date, dt_end: date)-> DataFrame:
@@ -918,7 +924,7 @@ I have divided this operation in two distinct methods and I also extend the meth
         # Create the Query object
         neo4j_query = Query(text=query, metadata=metadata) #type: ignore
 
-        result = self.free_query(neo4j_query)
+        result = self.free_query(neo4j_query, directToDF=True)
         return result
 
 ```

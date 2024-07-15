@@ -35,6 +35,7 @@ class Neo:
         
             Args:
                 query(te.LiteralString | Query): statement to be executed
+                directToDF(bool): if True the result will be returned as a dataframe, otherwise it will be processed into a dataframe
     
             Returns:
                 A dataframe representing the result of the statement
@@ -525,7 +526,7 @@ if __name__ == "__main__":
         co_customers.to_csv('./get_co_customer_relationships_of_degree_k.csv', sep=';', encoding='utf-8')
 
         # This query extends the db with the period of the day, the kind of product and the feeling of security with the customer friends relationship
-        #greeter.extend_neo()
+        greeter.extend_neo()
 
         # This query shows the transactions per period of the day in a given period of time
         tns = greeter.get_transactions_per_period(datetime(2019, 1, 1), datetime(2024, 2, 1))
