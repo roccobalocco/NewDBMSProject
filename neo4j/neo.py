@@ -1,3 +1,4 @@
+import neo
 from neo4j import GraphDatabase, Query
 import os
 from datetime import date, datetime
@@ -28,7 +29,8 @@ class Neo:
         print('Closing connection with neo4j')
         self.driver.close()
     
-    def free_query(self, query: te.LiteralString | Query) -> DataFrame:
+    
+    def free_query(self, query: te.LiteralString | Query, directToDF:bool = False) -> DataFrame:
         """ Execute the statement passed as an argument and  return the result as a dataframe
         
             Args:
@@ -37,12 +39,17 @@ class Neo:
             Returns:
                 A dataframe representing the result of the statement
         """
-        pandas_df = self.driver.execute_query(
-            query,
-            result_transformer_=neo4j.Result.to_df
-        )
-        return pandas_df 
         
+        if(directToDF):
+            pandas_df = self.driver.execute_query(
+                query,
+                result_transformer_=neo4j.Result.to_df,
+            )
+        else:
+            result = self.free_query_single(query)
+            pandas_df = DataFrame(result)
+        return pandas_df 
+    
     def free_query_single(self, query:te.LiteralString | Query):
         """ Execute the statement passed as an argument and return the result as single result
         
@@ -443,7 +450,7 @@ class Neo:
                 A dataframe representing the transactions that occurred in each period of the day
         """
         query = f"""
-        MATCH ()-[t:Transaction]-()
+        MATCH ()-[t:Transaction]->()
         WHERE 
         datetime(t.TX_DATETIME) >= datetime({{epochMillis: apoc.date.parse('{dt_start}', 'ms', 'yyyy-MM-dd HH:mm:ss')}})
         AND 
@@ -459,7 +466,7 @@ class Neo:
         # Create the Query object
         neo4j_query = Query(text=query, metadata=metadata) #type: ignore
 
-        transactions_per_period = self.free_query(neo4j_query)
+        transactions_per_period = self.free_query(neo4j_query, directToDF=True)
         return transactions_per_period
         
     def get_fraudolent_transactions_per_period(self, dt_start: date, dt_end: date)-> DataFrame:
@@ -473,7 +480,7 @@ class Neo:
                 A dataframe representing the fraudulent transactions that occurred in each period of the day and the average number of transactions
         """
         query = f"""
-        MATCH ()-[t:Transaction]-()
+        MATCH ()-[t:Transaction]->()
         WHERE 
         datetime(t.TX_DATETIME) >= datetime({{epochMillis: apoc.date.parse('{dt_start}', 'ms', 'yyyy-MM-dd HH:mm:ss')}}) 
         AND 
@@ -491,7 +498,7 @@ class Neo:
         # Create the Query object
         neo4j_query = Query(text=query, metadata=metadata) #type: ignore
 
-        result = self.free_query(neo4j_query)
+        result = self.free_query(neo4j_query, directToDF=True)
         return result
     # End of operations (e) functions
 if __name__ == "__main__":
@@ -500,33 +507,33 @@ if __name__ == "__main__":
         print('Start of execution')
 
         # Requested operation a
-        # customers = greeter.get_customer_under_average_with_properties(datetime(2019, 1, 1), datetime(2019, 2, 1))
-        # print(f'customers:\n {customers.head()}')
+        customers = greeter.get_customer_under_average_with_properties(datetime(2019, 1, 1), datetime(2019, 2, 1))
+        customers.to_csv('./get_customer_under_average_with_properties.csv', sep=';', encoding='utf-8')
         # This query shows nothing as a result, but don't worry and have a look at the db
         # There are a lot of costumer with small transactions number but large spending amount and viceversa, so....
         # Another intepretation of Operation a, computing the means for each customers in that period
-        # customers = greeter.get_customer_under_average(datetime(2019, 1, 1), datetime(2019, 2, 1))
-        # print(f'customers:\n {customers.head()}')
+        customers = greeter.get_customer_under_average(datetime(2019, 1, 1), datetime(2019, 2, 1))
+        customers.to_csv('./get_customer_under_average.csv', sep=';', encoding='utf-8')
         
         # This query shows fraudolent transaction on the terminal 10 in the period between 2019-01-01 and 2019-02-01!
         # and them are marked as fraudolent in the field of the relationship
-        # fraudulent_tns = greeter.get_fraudolent_transactions("10",datetime(2019, 1, 1), datetime(2019, 2, 1))
-        # print(f'fraudulent_tns:\n {fraudulent_tns.head()}')
+        fraudulent_tns = greeter.get_fraudolent_transactions("10",datetime(2019, 1, 1), datetime(2019, 2, 1))
+        fraudulent_tns.to_csv('./get_fraudolent_transactions.csv', sep=';', encoding='utf-8')
         
         # This query shows up the co-customer-relationships of degree 2 for the user 63
-        # co_customers = greeter.get_co_customer_relationships_of_degree_k(63, 2)
-        # print(f'co_customers:\n {co_customers.head()}')
+        co_customers = greeter.get_co_customer_relationships_of_degree_k(63, 2)
+        co_customers.to_csv('./get_co_customer_relationships_of_degree_k.csv', sep=';', encoding='utf-8')
 
         # This query extends the db with the period of the day, the kind of product and the feeling of security with the customer friends relationship
-        greeter.extend_neo()
+        #greeter.extend_neo()
 
         # This query shows the transactions per period of the day in a given period of time
-        # tns = greeter.get_transactions_per_period(datetime(2019, 1, 1), datetime(2019, 2, 1))
-        # print(f'tns:\n {tns.head()}')
+        tns = greeter.get_transactions_per_period(datetime(2019, 1, 1), datetime(2024, 2, 1))
+        tns.to_csv('./get_transactions_per_period.csv', sep=';', encoding='utf-8')
 
         # This query shows the fraudolent transactions per period of the day in a given period of time
-        # ftns = greeter.get_fraudolent_transactions_per_period(datetime(2019, 1, 1), datetime(2019, 2, 1))
-        # print(f'ftns:\n {ftns.head()}')
+        ftns = greeter.get_fraudolent_transactions_per_period(datetime(2019, 1, 1), datetime(2024, 2, 1))
+        ftns.to_csv('./get_fraudolent_transactions_per_period.csv', sep=';', encoding='utf-8')
 
         print('End of execution')
     except Exception as e:
