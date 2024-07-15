@@ -29,7 +29,15 @@ def relationship_creator(rel_lines:list[str],i:int):
         """
         # This is inside the for because appareantly the free tier has some issues concatenating create statements of this kind....
         # It takes a lot of time, really a lot. But my pc have also free time when I am sleeping
-        conn.free_query_single(statement)
+        # Define metadata if any (this is optional)
+        metadata = {
+            "purpose": "Importing transaction from a list into the database"
+        }
+
+        # Create the Query object
+        neo4j_query = Query(text=statement, metadata=metadata) #type: ignore
+
+        conn.free_query_single(neo4j_query)
     print("Ending thread {i}".format(i=i))
         
 def relationship_saver(rel_lines:list[str],i:int):
@@ -69,8 +77,16 @@ def run_many(path:str):
             "{lines}",
             {{}}
         );'''
+        # Define metadata if any (this is optional)
+        metadata = {
+            "purpose": "Importing transactions from a file into the database."
+        }
+
+        # Create the Query object
+        neo4j_query = Query(text=query, metadata=metadata) #type: ignore
+
+        conn.free_query(neo4j_query)
         file.close()
-        conn.free_query(query)
 
     print(f"Ending to run the file {path}")
     os.remove(path)

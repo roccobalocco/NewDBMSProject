@@ -1,14 +1,20 @@
-from neo4j import GraphDatabase
+from neo4j import GraphDatabase, Query
 import os
 from datetime import date, datetime
-
+import typing_extensions as te
 import neo4j
 from pandas import DataFrame
-from objects import Customer, FileType, Transaction
+from objects import FileType
 
 class Neo:
 
+    # Start of common methods
     def __init__(self):
+        """ Open a connection on a Neo4j instance using parameters from the environment variables:
+            - NEO_URI: the uri of the neo4j instance
+            - NEO_USER: the username of the neo4j instance
+            - NEO_PSW: the password of the neo4j instance
+        """
         try:
             print('Trying to open a connection with neo4j')
             self.driver = GraphDatabase.driver(os.environ['NEO_URI'], auth=(os.environ['NEO_USER'], os.environ['NEO_PSW']))
@@ -17,25 +23,51 @@ class Neo:
             print('Could not open connection with neo4j')
             
     def close(self):
+        """ Close the connection on Neo4j instance if it is open
+        """
         print('Closing connection with neo4j')
         self.driver.close()
     
-    def free_query(self, query)-> DataFrame:
+    def free_query(self, query: te.LiteralString | Query) -> DataFrame:
+        """ Execute the statement passed as an argument and  return the result as a dataframe
+        
+            Args:
+                query(te.LiteralString | Query): statement to be executed
+    
+            Returns:
+                A dataframe representing the result of the statement
+        """
         pandas_df = self.driver.execute_query(
             query,
             result_transformer_=neo4j.Result.to_df
         )
-        # result = session.execute_write(self._free_query_single, query)
         return pandas_df 
         
-    def free_query_single(self, query):
-        with self.driver.session() as session:
-            result = session.execute_write(self._free_query_single, query)
-            return result
+    def free_query_single(self, query:te.LiteralString | Query):
+        """ Execute the statement passed as an argument and return the result as single result
+        
+            Args:
+                query(te.LiteralString | Query): statement to be executed
+    
+            Returns:
+                A single result
+        """
+        single_result = self.driver.execute_query(query)
+        records = single_result.records
 
+        return records[0][single_result.keys[0]]
+    
     def import_csv(self, filepath:str, fileType: FileType):
+        """ Imports the csv file at the given path into the database, the importation depends on the fileType given
+        
+            Args:
+                filepath(str): the path of the file to import
+                fileType(FileType): the type of the file to import
+    
+            Returns:
+                None
+        """
         create_statement = ''
-        print('filetype:', FileType(fileType), fileType)
         match fileType:
             case FileType.CUSTOMERS:
                 create_statement = """
@@ -60,41 +92,32 @@ class Neo:
                 """
             case _:
                 raise ValueError('Invalid file type')
-        with self.driver.session() as session:
-            session.execute_write(self._import_csv, filepath, create_statement)
-
-    @staticmethod
-    def _import_csv(tx, filepath:str, create_statement:str):
+        
         query = f"""
         LOAD CSV WITH HEADERS FROM '{filepath}' AS line
         {create_statement}
         """
-        print(f"Executing query: {query}")  # Print the query for debugging
-        tx.run(query)
-        
-    @staticmethod
-    def _free_query(tx, query) -> DataFrame:
-        # result = tx.run(query)
-        pandas_df = tx.execute_query(
-            query,
-            result_transformer_= neo4j.Result.to_df
-        )
-        return pandas_df
-        # result = tx.run(query)
-        # return result.data()
-    
-    @staticmethod
-    def _free_query_single(tx, query):
-        result = tx.run(query)
-        return result.single()
-    
+
+        # Define metadata if any (this is optional)
+        metadata = {
+            "purpose": "Importing csv file"
+        }
+
+        # Create the Query object
+        neo4j_query = Query(text=query, metadata=metadata) #type: ignore
+
+        self.driver.execute_query(neo4j_query)
+
+    # End of common methods
+
     # Start of operations (a) functions DONE
-    def get_customer_under_average(self, dt_start: datetime, dt_end: datetime)-> DataFrame:
+    def get_customer_under_average_with_properties(self, dt_start: datetime, dt_end: datetime)-> DataFrame:
         """ Get customer under average for spending amounts and frequency of spending between dt_start and dt_end, 
-            by comparing them to the average of this period
-            (considering period as the same day&month over all the years registered in the database)
+            by comparing them to the average of this period.
+            (considering period as the same day&month over all the years registered in the database) \\
+            **This method will use the averages embedded in the properties of Customers nodes**
         
-                Args:
+            Args:
                 dt_start(datetime): date that states the start of the period to take in account 
                 dt_end(datetime): date that states the end of the period to take in account
     
@@ -104,7 +127,42 @@ class Neo:
         """
         avg_spending_amount = self.get_period_average_spending_amounts(dt_start, dt_end)
         avg_spending_frequency = self.get_period_average_spending_frequency(dt_start, dt_end)
-        print('avg_spending_amount:', avg_spending_amount, 'avg_spending_frequency:', avg_spending_frequency)
+
+        # Define the query text
+        query = f"""
+        MATCH (c:Customer)
+        WHERE c.mean_amount < {avg_spending_amount} AND c.mean_nb_tx_per_day*{dt_end.__sub__(dt_start).days} < {avg_spending_frequency}
+        return collect(c) as customers
+        """
+
+        # Define metadata if any (this is optional)
+        metadata = {
+            "purpose": "Retrieve customers with low spending and transaction frequency"
+        }
+
+        # Create the Query object
+        neo4j_query = Query(text=query, metadata=metadata) #type: ignore
+
+        customers = self.free_query(neo4j_query)
+        return customers
+    
+    def get_customer_under_average(self, dt_start: datetime, dt_end: datetime)-> DataFrame:
+        """ Get customer under average for spending amounts and frequency of spending between dt_start and dt_end, 
+            by comparing them to the average of this period
+            (considering period as the same day&month over all the years registered in the database)
+        
+            Args:
+                dt_start(datetime): date that states the start of the period to take in account 
+                dt_end(datetime): date that states the end of the period to take in account
+    
+            Returns:
+                A dataframe representing all the customers that have their amounts and frequency of spending in the period in this year 
+                less than the average of this period all over the years
+        """
+        avg_spending_amount = self.get_period_average_spending_amounts(dt_start, dt_end)
+        avg_spending_frequency = self.get_period_average_spending_frequency(dt_start, dt_end)
+
+        # Define the query text
         query = f"""
         MATCH (c:Customer)  -[t:Transaction]-> (:Terminal)
         WHERE datetime(t.TX_DATETIME) >= '{dt_start}' 
@@ -115,8 +173,16 @@ class Neo:
         RETURN collect(c) as customers
         """
 
-        customers = self.free_query(query)
-        return customers  # type: ignore
+        # Define metadata if any (this is optional)
+        metadata = {
+            "purpose": "Retrieve customers with low spending and transaction frequency"
+        }
+
+        # Create the Query object
+        neo4j_query = Query(text=query, metadata=metadata) #type: ignore
+
+        customers = self.free_query(neo4j_query)
+        return customers
     def get_period_average_spending_amounts(self, dt_start:date, dt_end:date)-> float:
         """ Get the average of spending amounts in a given period between dt_start and dt_end for all the years in the database
             
@@ -140,10 +206,19 @@ class Neo:
         RETURN AVG(t.TX_AMOUNT) as avg_spending_amount
         """
 
-        avg_spending_amount = self.free_query_single(query)
+        # Define metadata if any (this is optional)
+        metadata = {
+            "purpose": "Retrieve the average spending amount in a given period between dt_start and dt_end for all the years in the database"
+        }
+
+        # Create the Query object
+        neo4j_query = Query(text=query, metadata=metadata) #type: ignore
+
+        avg_spending_amount = self.free_query_single(neo4j_query)
         if (avg_spending_amount is None):
             return 0.
-        return float(avg_spending_amount["avg_spending_amount"])  # type: ignore
+        return float(avg_spending_amount)
+    
     def get_period_average_spending_frequency(self, dt_start:date, dt_end:date)-> float:
         """ Get the average of spending frequency in a given period between dt_start and dt_end for all the years in the database
             Args:
@@ -166,11 +241,21 @@ class Neo:
         WITH COUNT(t) as transaction_number, COUNT(DISTINCT c) as customer_number
         RETURN transaction_number*1.0/customer_number as avg_spending_frequency
         """
-        avg_spending_frequency  = self.free_query_single(query)
+
+
+        # Define metadata if any (this is optional)
+        metadata = {
+            "purpose": "Retrieve the average spending frequency in a given period between dt_start and dt_end for all the years in the database"
+        }
+
+        # Create the Query object
+        neo4j_query = Query(text=query, metadata=metadata) #type: ignore
+
+        avg_spending_frequency  = self.free_query_single(neo4j_query)
 
         if (avg_spending_frequency is None):
             return 0.
-        return float(avg_spending_frequency["avg_spending_frequency"])  # type: ignore
+        return float(avg_spending_frequency)  # type: ignore
     # End of operations (a) functions
     
     # Start of operations (b) functions DONE
@@ -189,7 +274,15 @@ class Neo:
         RETURN collect(t) as fraudolent_transactions
         """
 
-        fraudolent_transactions = self.free_query(query)
+        # Define metadata if any (this is optional)
+        metadata = {
+            "purpose": "Retrieve fraudolent transactions with an import higher than 20percent of the maximal import of the transactions executed on the same terminal in the last month"
+        }
+
+        # Create the Query object
+        neo4j_query = Query(text=query, metadata=metadata) #type: ignore
+
+        fraudolent_transactions = self.free_query(neo4j_query)
         return fraudolent_transactions
     def get_terminal_max_import_last_month(self, terminal_id:str, dt_start:date, dt_end:date)-> float:
         """ Get the maximal import of the transactions executed on the terminal terminal_id in the last month
@@ -211,10 +304,18 @@ class Neo:
         RETURN MAX(tr.TX_AMOUNT) as max_import
         """
         
-        maximal_import = self.free_query_single(query)
+        # Define metadata if any (this is optional)
+        metadata = {
+            "purpose": "Retrieve the maximal import of the transactions executed on the terminal terminal_id in the last month"
+        }
+
+        # Create the Query object
+        neo4j_query = Query(text=query, metadata=metadata) #type: ignore
+
+        maximal_import = self.free_query_single(neo4j_query)
         if (maximal_import is None):
             return 0.
-        return float(maximal_import["max_import"])
+        return float(maximal_import)
     # End of operations (b) functions
     
     # Start of operations (c) functions DONE
@@ -234,7 +335,15 @@ class Neo:
         RETURN collect(DISTINCT co) as co_customers
         """
 
-        co_customers = self.free_query(query)
+        # Define metadata if any (this is optional)
+        metadata = {
+            "purpose": "Retrieve the co-customer-relationships of degree k for the user u"
+        }
+
+        # Create the Query object
+        neo4j_query = Query(text=query, metadata=metadata) #type: ignore
+
+        co_customers = self.free_query(neo4j_query)
         return co_customers
     # End of operations (c) functions
     
@@ -260,7 +369,7 @@ class Neo:
             Each transaction should be extended with:
                 - The period of the day {morning, afternoon, evening, night} in which the transaction has been executed.
         """
-        query = """
+        query: te.LiteralString = """
         MATCH ()-[t:Transaction]-()
         WITH distinct t as single_t
         SET single_t.PERIOD_OF_DAY = CASE
@@ -278,7 +387,7 @@ class Neo:
             Each transaction should be extended with:
                 - The kind of products that have been bought through the transaction {high-tech, food, clothing, consumable, other}
         """
-        query = """
+        query: te.LiteralString = """
         MATCH ()-[tt:Transaction]-()
         WITH distinct tt as t
         SET t.KIND_OF_PRODUCT = CASE
@@ -299,7 +408,7 @@ class Neo:
                 - The feeling of security expressed by the user. This is an integer value between 1 and 5 expressed by the user when conclude the transaction.
                     The values can be chosen randomly.
         """
-        query = """
+        query: te.LiteralString = """
         MATCH ()-[tt:Transaction]-()
         WITH distinct tt as t
         SET t.FEELING_OF_SECURITY = toInteger(rand() * 5) + 1
@@ -310,7 +419,7 @@ class Neo:
     def connect_buying_friends(self)-> None:
         """ Connect customers that make more than three transactions from the same terminal expressing a similar average feeling of security as "buying_friends".
         """
-        query = """
+        query: te.LiteralString = """
         MATCH (c1:Customer)-[tc1:Transaction]->(terminal:Terminal)<-[tc2:Transaction]-(c2:Customer)
         WHERE c1.CUSTOMER_ID <> c2.CUSTOMER_ID 
         WITH terminal.TERMINAL_ID AS terminal_id, count(distinct tc1) as tnc1_num, c1, count(distinct tc2) as tnc2_num, c2, 
@@ -331,7 +440,7 @@ class Neo:
                 dt_end(datetime): date that states the end of the period to take in account (not consider the year) 
             
             Returns:
-                A dict representing the transactions that occurred in each period of the day
+                A dataframe representing the transactions that occurred in each period of the day
         """
         query = f"""
         MATCH ()-[t:Transaction]-()
@@ -342,9 +451,18 @@ class Neo:
         RETURN t.PERIOD_OF_DAY, collect(t) as transactions_per_period
         """
 
-        transactions_per_period = self.free_query(query)
+        # Define metadata if any (this is optional)
+        metadata = {
+            "purpose": "Retrieve transactions that occurred in each period of the day"
+        }
+
+        # Create the Query object
+        neo4j_query = Query(text=query, metadata=metadata) #type: ignore
+
+        transactions_per_period = self.free_query(neo4j_query)
         return transactions_per_period
         
+    def get_fraudolent_transactions_per_period(self, dt_start: date, dt_end: date)-> DataFrame:
         """ Get the fraudulent transactions that occurred in each period of the day and the average number of transactions
             
             Args:
@@ -352,7 +470,7 @@ class Neo:
                 dt_end(datetime): date that states the end of the period to take in account (not consider the year) 
             
             Returns:
-                A dict representing the fraudulent transactions that occurred in each period of the day and the average number of transactions
+                A dataframe representing the fraudulent transactions that occurred in each period of the day and the average number of transactions
         """
         query = f"""
         MATCH ()-[t:Transaction]-()
@@ -364,8 +482,16 @@ class Neo:
         WITH t.PERIOD_OF_DAY as period_of_day, collect(t) as fraudulent_transactions, count(t) as tn_per_period_of_the_day
         RETURN period_of_day, fraudulent_transactions, avg(tn_per_period_of_the_day) as average_number_of_transactions
         """
-        
-        result = self.free_query(query)
+
+        # Define metadata if any (this is optional)
+        metadata = {
+            "purpose": "Retrieve  fraudulent transactions that occurred in each period of the day and the average number of transactions"
+        }
+
+        # Create the Query object
+        neo4j_query = Query(text=query, metadata=metadata) #type: ignore
+
+        result = self.free_query(neo4j_query)
         return result
 
 if __name__ == "__main__":
@@ -373,16 +499,23 @@ if __name__ == "__main__":
     try:
         print('Start of execution')
 
+        # Requested operation a
+        # customers = greeter.get_customer_under_average_with_properties(datetime(2019, 1, 1), datetime(2019, 2, 1))
+        # print(f'customers:\n {customers.head()}')
         # This query shows nothing as a result, but don't worry and have a look at the db
         # There are a lot of costumer with small transactions number but large spending amount and viceversa, so....
-        # greeter.get_customer_under_average(datetime(2019, 1, 1), datetime(2019, 2, 1))
+        # Another intepretation of Operation a, computing the means for each customers in that period
+        # customers = greeter.get_customer_under_average(datetime(2019, 1, 1), datetime(2019, 2, 1))
+        # print(f'customers:\n {customers.head()}')
         
         # This query shows fraudolent transaction on the terminal 5 in the period between 2019-01-01 and 2019-02-01!
         # and them are marked as fraudolent in the field of the relationship
-        #greeter.get_fraudolent_transactions("5",datetime(2019, 1, 1), datetime(2019, 2, 1))
+        fraudulent_tns = greeter.get_fraudolent_transactions("5",datetime(2019, 1, 1), datetime(2019, 2, 1))
+        print(f'fraudulent_tns:\n {fraudulent_tns.head()}')
         
         # This query shows up the co-customer-relationships of degree 2 for the user 63
-        # co_customers = greeter.get_co_customer_relationships_of_degree_k(63, 2)
+        co_customers = greeter.get_co_customer_relationships_of_degree_k(63, 2)
+        print(f'co_customers:\n {co_customers.head()}')
 
         # This query extends the db with the period of the day, the kind of product and the feeling of security with the customer friends relationship
         # greeter.extend_neo()
