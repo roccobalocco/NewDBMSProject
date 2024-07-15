@@ -1,4 +1,8 @@
-# New Generation DBMS Project 2023/2024:
+Masolini Pietro - Universita' degli Studi di Milano - 2024 - [Github](https://github.com/roccobaloccoo)
+
+<hr>
+
+# [New Generation DBMS Project](https://github.com/roccobalocco/NewDBMSProject) 2023/2024:
 
 For the realization of this project I have chosen to use Neo4J. The choice of a Graph Database is due to the importance of relationships in the dataset and the specific operations that are required.
 
@@ -117,7 +121,7 @@ This script, stripped of imports and function definitions, shows how I generate 
 I use a `dict` (`args_num`) to store the different amount of customers, terminals and days for each of the dataset required, ensuring the meet size constraints.
 
 Next, I exploit functions given [by the website linked in the project]( fraud-
-detection-handbook.github.io/fraud-detection-handbook/Chapter_3_GettingStarted/SimulatedDataset.html) to create dataframes. These dataframes are then converted into `csv` files, with transaction data spanning three years, strating from starting from *2018-04-01*.
+detection-handbook.github.io/fraud-detection-handbook/Chapter_3_GettingStarted/SimulatedDataset.html) to create dataframes. These dataframes are then converted into `csv` files, with transaction data spanning three years, starting from starting from *2018-04-01*.
 
 Based on the dictionary key. I select the the directory where the `csv` files will be stored and exploit pandas function `to_csv` to save them.
 
@@ -196,19 +200,32 @@ def file_merger(file_extension:str):
 def run_many(path:str):
 	# implementation
 
+
 def file_opener(file_name):
+    """Opens a file and processes its contents in different ways depending on the function called inside it.
+    It can exploit the @relationship_creator, @relationship_saver, @run_many, and @file_merger functions.
+
+    Args:
+        file_name (str): The name of the file to be opened (the relative path usually).
+
+    Raises:
+        Exception: If an error occurs while processing the file.
+
+    Returns:
+        None
+    """
     with open(file_name, 'r') as file:
         try:
-            lines = file.readlines()[1:25810]  # Discard the first line (header) and limit the number of lines due to the free tier!
+            lines = file.readlines()[1:400000]  # Discard the first line (header) and limit the number of lines
             print('Starting to read the line of {file}, preparing {numRel} relationships'.format(file=file_name, numRel=len(lines)))
 
-            #Thread section:
-            list_splitter = [i * 1000 for i in range(1, 24)]
-            list_splitter.append(25810)
+            # Thread section:
+            list_splitter = [i * 4000 for i in range(1, 101)]
+            list_splitter.append(400000) # Create a list to save n relationship per file using 100 threads
             threads = []
-            for i in range(1, 24):
+            for i in range(1, 101):
                 # To save on the db really slow
-                #thread = threading.Thread(target=relationship_creator, args=(lines[list_splitter[i-1]:list_splitter[i]],i,))
+                # thread = threading.Thread(target=relationship_creator, args=(lines[list_splitter[i-1]:list_splitter[i]],i,))
                 # To save into cql files using threads
                 thread = threading.Thread(target=relationship_saver, args=(lines[list_splitter[i-1]:list_splitter[i]],i,))
                 
@@ -224,17 +241,18 @@ def file_opener(file_name):
 
             # To execute the multiple statements from the file in a single query with a number of threads that reflects the number of files
             threads = []
-            for i in range(1, 24):
+            for i in range(1, 101):
                 arg = f'../simulated-data-raw-50mb/transactionsThread{i}.cql'
                 thread = threading.Thread(target=run_many, args=(arg,))
-                
                 threads.append(thread)
                 thread.start()
+                time.sleep(10) # due to heapsize or free tier limitations (if you are using it)
 
             for thread in threads:
                 thread.join()
         except Exception as e:
             print(f'You have finished the free tier :/, maybe - \n {e}')
+
 file_opener('../simulated-data-raw-50mb/transactions.csv')
 
 conn.close()
@@ -357,8 +375,6 @@ def run_many(path:str):
     print(f"Ending to run the file {path}")
     os.remove(path)
 ```
-
-
 
 ## Operation scripts:
 
@@ -1046,10 +1062,13 @@ APOC (specifically in its full version) offers procedures to execute Cypher frag
 ## Notes:
 
 - All the code showed in this document can be see in [this repository](https://github.com/roccobalocco/NewDBMSProject) or in the `zip` attached within this file.
-- For the realization of the project I used the free tier of Neo4j.
+- For the realization of the project I used the free tier of Neo4j and, in the last stages, Neo4j desktop.
 - For the diagrams I used [draw.io](https://www.drawio.com/) and [Star UML](https://www.staruml.io).
 - I tried to specify as many types as possible even if I am using python, to have better readability and code awareness (and also, I do not like untyped languages).
 - The consideration of batch processing, query tuning, and parallel execution using APOC were given to specify how this project can be evolved. 
+- In the main directory of the project there is a `requirements.txt` file, that is the result of a `pip freeze`
+- Before proceeding with Neo4j desktop remember to max out the heap size in the `conf` file
+- Part of the Neo4j's theory written here has been extracted from the [official docs](https://neo4j.com/docs/)
 
 <hr>
 

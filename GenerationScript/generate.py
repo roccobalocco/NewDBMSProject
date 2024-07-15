@@ -1,8 +1,6 @@
-from pandas import DataFrame
 from add_frauds import add_frauds
 from generate_dataset import generate_dataset
 import os
-import datetime
 import csv
 import locale
 
@@ -21,11 +19,9 @@ def clean_csv(filepath: str):
     
     # Write the cleaned data to a new file
     with open(filepath, 'w', newline='') as file:
-        writer = csv.writer(file)
+        writer = csv.writer(file, delimiter=';')
         writer.writerows(data)
     
-# 5000 10000 183 are, more or less, 100mb of data
-
 args_num:dict = {0: [100, 25, 730] }# {0: [1150, 100, 1095], 1: [2300, 200, 1095], 2: [6300, 800, 1095]}
 
 for key, value in args_num.items():
@@ -49,8 +45,6 @@ for key, value in args_num.items():
         DIR_OUTPUT += '-200mb/'
 
     create_dir(DIR_OUTPUT)
-
-    start_date = datetime.datetime.strptime("2018-04-01", "%Y-%m-%d")
 
     # saving customers
     customer_profiles_table.to_csv(DIR_OUTPUT + '/customers.csv', sep=';', encoding='utf-8')

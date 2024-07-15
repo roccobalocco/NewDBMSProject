@@ -33,7 +33,7 @@ conn = neo.Neo()
 def relationship_creator(rel_lines:list[str],i:int):
     print("Starting thread {i}".format(i=i))
     for line in rel_lines:
-        columns = line.split(',') # it may be a coma or a semicolon, depending on the generated csv file
+        columns = line.split(';') # it may be a coma or a semicolon, depending on the generated csv file
         statement = f"""
         MATCH (cc:Customer {{CUSTOMER_ID: {columns[2]}}}), (tt:Terminal {{TERMINAL_ID: {columns[3]}}})
         CREATE (cc) -[tr:Transaction {{
@@ -63,7 +63,7 @@ def relationship_saver(rel_lines:list[str],i:int):
     statements = ''  # Initialize the statements variable
     
     for line in rel_lines:
-        columns = line.split(',')
+        columns = line.split(';')
         statements += f"""
         MATCH (cc:Customer {{CUSTOMER_ID: {columns[2]}}}), (tt:Terminal {{TERMINAL_ID: {columns[3]}}}) CREATE (cc) -[tr:Transaction {{ TRANSACTION_ID: toInteger({columns[0]}), TX_DATETIME:  datetime({{epochMillis: apoc.date.parse('{columns[1]}', 'ms', 'yyyy-MM-dd HH:mm:ss')}}), TX_AMOUNT: toFloat({columns[4]}), TX_TIME_SECONDS: toInteger({columns[5]}), TX_TIME_DAYS: toInteger({columns[6]}), TX_FRAUD: toBoolean({columns[7]}), TX_FRAUD_SCENARIO: toInteger({columns[8]})}}]-> (tt) RETURN 'ok';
         """
