@@ -315,7 +315,7 @@ def import_csv(self, filepath:str, fileType: FileType):
         self.driver.execute_query(neo4j_query)
 ```
 
-The `relationship_saver` function constructs a statement for creating a relationship in Neo4J and then exploit the `free_query` function to execute that statement.
+The `relationship_creator` function constructs a statement for creating a relationship in Neo4J and then exploit the `free_query` function to execute that statement.
 
 Execution is sequential because multiple statements cannot be executed simultaneously outside the Neo4J browser without APOC. The use of threading can mitigate this limitation.	
 
@@ -364,7 +364,7 @@ def relationship_saver(rel_lines:list[str],i:int):
         columns = line.split(',')
         statements += f"""MERGE (cc:Customer {{CUSTOMER_ID: {columns[2]}}})-[tr:Transaction {{TRANSACTION_ID: {columns[0]}}}]->(tt:Terminal {{TERMINAL_ID: {columns[3]}}}) ON CREATE SET tr.TRANSACTION_ID = {columns[0]}, tr.TX_DATETIME = datetime({{epochMillis: apoc.date.parse('{columns[1]}', 'ms', 'yyyy-MM-dd HH:mm:ss')}}), tr.TX_AMOUNT = toFloat({columns[4]}), tr.TX_TIME_SECONDS = {columns[5]}, tr.TX_TIME_DAYS = {columns[6]},tr.TX_FRAUD = toBoolean({columns[7]}),tr.TX_FRAUD_SCENARIO = {columns[8]} RETURN 'ok';
         """
-    file_path = f"../simulated-data-raw-200mb/transactionsThread{i}.cql"
+    file_path = f"../simulated-data-raw-100mb/transactionsThread{i}.cql"
     # Open the file in write mode
     with open(file_path, 'w') as file:
         # Write content to the file
@@ -994,7 +994,7 @@ I ran Neo4j Desktop on a Desktop Pc with the following specifications and with *
  - **Ne4j Desktop** Version 1.6.0
  - **Neo** Neo4j 5.12.0
 
-For the **200mb** dataset I have also utilized three simple indexes:
+Since the second listed dataset dataset I have also utilized three simple indexes:
 
 ```CQL
 CREATE INDEX CustomerIDIndex 
@@ -1008,7 +1008,9 @@ FOR () -[t:Transaction]-> ()
 ON t.TERMINAL_ID
 ```
 
-#### 50mb dataset:
+#### 50mb or + dataset:
+
+With these implementation I can easily handle a **77mb** dataset with transitions that span over a 3 years period (~1.4m of record), with the following temporal results:
 
 | Method                                      | Time in seconds               |
 | ------------------------------------------- | ----------------------------- |
@@ -1020,7 +1022,9 @@ ON t.TERMINAL_ID
 | get_transactions_per_period:                | 6.169000864028931             |
 | get_fraudolent_transactions_per_period:     | 15.216424226760864            |
 
-#### 100mb dataset:
+#### 100mb or + dataset:
+
+With these implementation I can barely handle a **221mb** dataset with transitions that span over a 3 years period (~3.8m of record) and I cannot go over the second degree with the RAM that my computer offer (my heap size limit was 11GB and also some other kind of cache and pagination was limited)
 
 | Method                                      | Time in seconds                |
 | ------------------------------------------- | ------------------------------ |
@@ -1034,17 +1038,7 @@ ON t.TERMINAL_ID
 
 #### 200mb dataset:
 
-| Method                                      | Time in seconds    |
-| ------------------------------------------- | ------------------ |
-| get_customer_under_average_with_properties: | 124.75377297401428 |
-| get_customer_under_average:                 | 172.66146874427795 |
-| get_fraudolent_transactions:                |                    |
-| get_co_customer_relationships_of_degree_k:  |                    |
-| extend_neo:                                 |                    |
-| get_transactions_per_period:                |                    |
-| get_fraudolent_transactions_per_period:     |                    |
-
-
+With these implementation I cannot even handle the importation of a **763mb** dataset without using a lot of thread and splitting the import in more than 2 phases with transitions that span over a 3 year period, so I tested it out only with some of them (for a total of >13m) and the results are not the best and follow the same decadence see above if we compare the first with the second dataset. 
 
 ### Other consideration about improving performance:
 

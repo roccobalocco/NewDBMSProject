@@ -524,17 +524,17 @@ if __name__ == "__main__":
         end = time.time()
         print('get_customer_under_average: {0}'.format(end - start))
         
-        # This query shows fraudolent transaction on the terminal 10 in the period between 2019-01-01 and 2019-02-01!
+        # This query shows fraudolent transaction on the terminal 10
         # and them are marked as fraudolent in the field of the relationship
         start = time.time()
-        fraudulent_tns = greeter.get_fraudolent_transactions("10",datetime(2018, 4, 1), datetime(2019, 5, 1))
+        fraudulent_tns = greeter.get_fraudolent_transactions("10",datetime(2018, 4, 1), datetime(2018, 5, 1))
         fraudulent_tns.to_csv('./get_fraudolent_transactions.csv', sep=';', encoding='utf-8')
         end = time.time()
         print('get_fraudolent_transactions: {0}'.format(end - start))
         
         # This query shows up the co-customer-relationships of degree 2 for the user 63
         start = time.time()
-        co_customers = greeter.get_co_customer_relationships_of_degree_k(63, 2)
+        co_customers = greeter.get_co_customer_relationships_of_degree_k(630, 2)
         co_customers.to_csv('./get_co_customer_relationships_of_degree_k.csv', sep=';', encoding='utf-8')
         end = time.time()
         print('get_co_customer_relationships_of_degree_k: {0}'.format(end - start))
@@ -545,9 +545,9 @@ if __name__ == "__main__":
         end = time.time()
         print('extend_neo: {0}'.format(end - start))
 
-        # This query shows the transactions per periocall apoc.periodic.iterate("MATCH p=()-[r]->() RETURN r,p LIMIT 5000000;","DELETE r;", {batchSize:10000, parallel: true}); call apoc.periodic.iterate("MATCH (d) return d LIMIT 5000000;","DELETE d;", {batchSize:10000, parallel: true}); d of the day in a given period of time
+        # This query shows the transactions per period of the day in a given period of time
         start = time.time()
-        tns = greeter.get_transactions_per_period(datetime(2019, 1, 1), datetime(2024, 2, 1))
+        tns = greeter.get_transactions_per_period(datetime(2018, 1, 1), datetime(2024, 2, 1))
         tns.to_csv('./get_transactions_per_period.csv', sep=';', encoding='utf-8')
         end = time.time()
         print('get_transactions_per_period: {0}'.format(end - start))
