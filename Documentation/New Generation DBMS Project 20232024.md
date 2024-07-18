@@ -216,14 +216,17 @@ def file_opener(file_name):
     """
     with open(file_name, 'r') as file:
         try:
-            lines = file.readlines()[1:400000]  # Discard the first line (header) and limit the number of lines
-            print('Starting to read the line of {file}, preparing {numRel} relationships'.format(file=file_name, numRel=len(lines)))
+            threadNum = 2000
+            lines = file.readlines()[1:] # Discard the header
+            lineCount = len(lines)
+            rowPerThread = lineCount // threadNum
+            print('Starting to read the line of {file}, preparing {numRel} relationships'.format(file=file_name, numRel=lineCount))
 
             # Thread section:
-            list_splitter = [i * 4000 for i in range(1, 101)]
-            list_splitter.append(400000) # Create a list to save n relationship per file using 100 threads
+            list_splitter = [i * rowPerThread for i in range(1, threadNum)]
             threads = []
-            for i in range(1, 101):
+
+            for i in range (1, threadNum):
                 # To save on the db really slow
                 # thread = threading.Thread(target=relationship_creator, args=(lines[list_splitter[i-1]:list_splitter[i]],i,))
                 # To save into cql files using threads
@@ -238,20 +241,17 @@ def file_opener(file_name):
             threads = []
             # To merge all the generated files into a single one
             # file_merger('.cql')
-
             # To execute the multiple statements from the file in a single query with a number of threads that reflects the number of files
-            threads = []
-            for i in range(1, 101):
-                arg = f'../simulated-data-raw-50mb/transactionsThread{i}.cql'
+            for i in range (1, threadNum):
+                arg = f'../simulated-data-raw-200mb/transactionsThread{i}.cql'
                 thread = threading.Thread(target=run_many, args=(arg,))
                 threads.append(thread)
-                thread.start()
-                time.sleep(10) # due to heapsize or free tier limitations (if you are using it)
+                time.sleep(25) # It depends on the heap size of your db
 
             for thread in threads:
                 thread.join()
         except Exception as e:
-            print(f'You have finished the free tier :/, maybe - \n {e}')
+            print(f'Something wrong happened - \n {e}')
 
 file_opener('../simulated-data-raw-50mb/transactions.csv')
 
@@ -346,6 +346,30 @@ def relationship_creator(rel_lines:list[str],i:int):
         neo4j_query = Query(text=statement, metadata=metadata) #type: ignore
 
         conn.free_query_single(neo4j_query)
+    print("Ending thread {i}".format(i=i))
+```
+
+The `relationship_saver` is a better version of the previous one, in term of performance and in term of query construction; it saves the statements into a file called `transactionsThreadNum.cql` that would be utilize by the `run_many` function.
+
+The step of creating a file isn't necessary, but it can be nice to have if our relationships number is huge and we want to have a backup of our creation statement.
+
+This function utilizes the `MERGE` keyboard for the construction of the relationship and also check if it already exists in our database. Due to the heap size limit of Neo4j desktop db, some crashes happened, with the check of existence I had the possibility to recover at some point without worrying about duplication.
+
+```python
+def relationship_saver(rel_lines:list[str],i:int):
+    print("Starting thread {i}".format(i=i))
+    statements = ''  # Initialize the statements variable
+    
+    for line in rel_lines:
+        columns = line.split(',')
+        statements += f"""MERGE (cc:Customer {{CUSTOMER_ID: {columns[2]}}}) MERGE (tt:Terminal {{TERMINAL_ID: {columns[3]}}}) MERGE (cc)-[tr:Transaction {{TRANSACTION_ID: {columns[0]}}}]->(tt) ON CREATE SET tr.TRANSACTION_ID = {columns[0]}, tr.TX_DATETIME = datetime({{epochMillis: apoc.date.parse('{columns[1]}', 'ms', 'yyyy-MM-dd HH:mm:ss')}}), tr.TX_AMOUNT = toFloat({columns[4]}), tr.TX_TIME_SECONDS = {columns[5]}, tr.TX_TIME_DAYS = {columns[6]},tr.TX_FRAUD = toBoolean({columns[7]}),tr.TX_FRAUD_SCENARIO = {columns[8]} RETURN 'ok';
+        """
+    file_path = f"../simulated-data-raw-200mb/transactionsThread{i}.cql"
+    # Open the file in write mode
+    with open(file_path, 'w') as file:
+        # Write content to the file
+        file.write(statements)
+        file.close()
     print("Ending thread {i}".format(i=i))
 ```
 
@@ -512,42 +536,7 @@ In the operations description above I have listed two interpretation:
 Both methods exploit the utilities provided, the only thing that changes is the main query wihin them.
 
 ```python
-def get_customer_under_average_with_properties(self, dt_start: datetime, dt_end: datetime)-> DataFrame:
-        """ Get customer under average for spending amounts and frequency of spending between dt_start and dt_end, 
-            by comparing them to the average of this period.
-            (considering period as the same day&month over all the years registered in the database) \\
-            **This method will use the averages embedded in the properties of Customers nodes**
-        
-            Args:
-                dt_start(datetime): date that states the start of the period to take in account 
-                dt_end(datetime): date that states the end of the period to take in account
-    
-            Returns:
-                A dataframe representing all the customers that have their amounts and frequency of spending in the period in this year 
-                less than the average of this period all over the years
-        """
-        avg_spending_amount = self.get_period_average_spending_amounts(dt_start, dt_end)
-        avg_spending_frequency = self.get_period_average_spending_frequency(dt_start, dt_end)
-
-        # Define the query text
-        query = f"""
-        MATCH (c:Customer)
-        WHERE c.mean_amount < {avg_spending_amount} AND c.mean_nb_tx_per_day*{dt_end.__sub__(dt_start).days} < {avg_spending_frequency}
-        return collect(c) as customers
-        """
-
-        # Define metadata if any (this is optional)
-        metadata = {
-            "purpose": "Retrieve customers with low spending and transaction frequency"
-        }
-
-        # Create the Query object
-        neo4j_query = Query(text=query, metadata=metadata) #type: ignore
-
-        customers = self.free_query(neo4j_query)
-        return customers
-    
-    def get_customer_under_average(self, dt_start: datetime, dt_end: datetime)-> DataFrame:
+def get_customer_under_average(self, dt_start: datetime, dt_end: datetime)-> DataFrame:
         """ Get customer under average for spending amounts and frequency of spending between dt_start and dt_end, 
             by comparing them to the average of this period
             (considering period as the same day&month over all the years registered in the database)
@@ -566,9 +555,9 @@ def get_customer_under_average_with_properties(self, dt_start: datetime, dt_end:
         # Define the query text
         query = f"""
         MATCH (c:Customer)  -[t:Transaction]-> (:Terminal)
-        WHERE datetime(t.TX_DATETIME) >= '{dt_start}' 
+        WHERE t.TX_DATETIME >= '{dt_start}' 
         AND 
-        datetime(t.TX_DATETIME) <= '{dt_end}'
+        t.TX_DATETIME <= '{dt_end}'
         WITH c, AVG(t.TX_AMOUNT) as avg_amount, COUNT(t) as nb_tx
         WHERE avg_amount < {avg_spending_amount} AND nb_tx < {avg_spending_frequency}
         RETURN collect(c) as customers
@@ -597,13 +586,13 @@ def get_customer_under_average_with_properties(self, dt_start: datetime, dt_end:
         query = f"""
         MATCH ()-[t:Transaction]->(:Terminal)
         WHERE 
-            datetime(t.TX_DATETIME).month >= {dt_start.month} 
+            t.TX_DATETIME.month >= {dt_start.month} 
             AND 
-            datetime(t.TX_DATETIME).day >= {dt_start.day}
+            t.TX_DATETIME.day >= {dt_start.day}
             AND 
-            datetime(t.TX_DATETIME).month <= {dt_end.month} 
+            t.TX_DATETIME.month <= {dt_end.month} 
             AND
-            datetime(t.TX_DATETIME).day <= {dt_end.day}
+            t.TX_DATETIME.day <= {dt_end.day}
         RETURN AVG(t.TX_AMOUNT) as avg_spending_amount
         """
 
@@ -632,17 +621,17 @@ def get_customer_under_average_with_properties(self, dt_start: datetime, dt_end:
         query = f"""
         MATCH (c:Customer)-[t:Transaction]->(:Terminal)
         WHERE
-        datetime(t.TX_DATETIME).month >= {dt_start.month}
+        t.TX_DATETIME.month >= {dt_start.month}
         AND 
-        datetime(t.TX_DATETIME).day >= {dt_start.day}
+        t.TX_DATETIME.day >= {dt_start.day}
         AND 
-        datetime(t.TX_DATETIME).month <= {dt_end.month}
+        t.TX_DATETIME.month <= {dt_end.month}
         AND 
-        datetime(t.TX_DATETIME).day <= {dt_end.day}
+        t.TX_DATETIME.day <= {dt_end.day}
         WITH COUNT(t) as transaction_number, COUNT(DISTINCT c) as customer_number
+        WHERE customer_number > 0
         RETURN transaction_number*1.0/customer_number as avg_spending_frequency
         """
-
 
         # Define metadata if any (this is optional)
         metadata = {
@@ -657,7 +646,6 @@ def get_customer_under_average_with_properties(self, dt_start: datetime, dt_end:
         if (avg_spending_frequency is None):
             return 0.
         return float(avg_spending_frequency)  # type: ignore
-    
 ```
 
 ### Operation b:
@@ -710,9 +698,9 @@ def get_fraudolent_transactions(self, terminal_id:str, dt_start:date, dt_end:dat
         query = f"""
         MATCH (t:Terminal {{TERMINAL_ID: {terminal_id}}}) <-[tr:Transaction]- (:Customer)
         WHERE 
-        datetime(tr.TX_DATETIME) >= datetime({{epochMillis: apoc.date.parse('{dt_start}', 'ms', 'yyyy-MM-dd HH:mm:ss')}})
+        tr.TX_DATETIME >= datetime({{epochMillis: apoc.date.parse('{dt_start}', 'ms', 'yyyy-MM-dd HH:mm:ss')}})
         AND 
-        datetime(tr.TX_DATETIME) <= datetime({{epochMillis: apoc.date.parse('{dt_end}', 'ms', 'yyyy-MM-dd HH:mm:ss')}})
+        tr.TX_DATETIME <= datetime({{epochMillis: apoc.date.parse('{dt_end}', 'ms', 'yyyy-MM-dd HH:mm:ss')}})
         RETURN MAX(tr.TX_AMOUNT) as max_import
         """
         
@@ -736,7 +724,7 @@ def get_fraudolent_transactions(self, terminal_id:str, dt_start:date, dt_end:dat
 This method embeds the request; it takes the user id (`u`) and the degree of the relationship (`k`) in input to then return a DataFrame with the collection of distinct customers that are categorized as *co-customer*  of degree $k$.  
 
 ```python
-    def get_co_customer_relationships_of_degree_k(self, u:int, k:int)-> DataFrame:
+def get_co_customer_relationships_of_degree_k(self, u:int, k:int)-> DataFrame:
         """ Get the co-customer-relationships of degree k for the user u
             
             Args:
@@ -785,6 +773,8 @@ This operation is divided in four methods, called all at once with `extend_neo` 
 
 The relationships are saved into the database to let users query whenever they want.
 
+It is important to notice that the first three call into the `extend_neo` method can be parallelized, but the fourth call must happened after the `extend_neo_with_period` finishes, because it utilize the `PERIOD_OF_DAY` property.
+
 ```python
 def extend_neo(self)-> None:
         """ Extend the logical model that you have stored in the NOSQL database by introducing the following information:
@@ -808,7 +798,7 @@ def extend_neo(self)-> None:
                 - The period of the day {morning, afternoon, evening, night} in which the transaction has been executed.
         """
         query: te.LiteralString = """
-        MATCH ()-[t:Transaction]-()
+        MATCH ()-[t:Transaction]->()
         WITH distinct t as single_t
         SET single_t.PERIOD_OF_DAY = CASE
             WHEN single_t.TX_DATETIME.hour >= 6 AND single_t.TX_DATETIME.hour < 12 THEN 'morning'
@@ -816,17 +806,17 @@ def extend_neo(self)-> None:
             WHEN single_t.TX_DATETIME.hour >= 12 AND single_t.TX_DATETIME.hour < 18 THEN 'afternoon'
             ELSE 'night'
         END
+        RETURN 'ok' as result
         """
         
-        self.free_query(query)
-
+        self.free_query_single(query)
     def extend_neo_with_kind_of_product(self)-> None:
         """ Extend the logical model that you have stored in the NOSQL database by introducing the following information:
             Each transaction should be extended with:
                 - The kind of products that have been bought through the transaction {high-tech, food, clothing, consumable, other}
         """
         query: te.LiteralString = """
-        MATCH ()-[tt:Transaction]-()
+        MATCH ()-[tt:Transaction]->()
         WITH distinct tt as t
         SET t.KIND_OF_PRODUCT = CASE
             WHEN t.TRANSACTION_ID % 5  = 0 THEN 'high-tech'
@@ -835,10 +825,10 @@ def extend_neo(self)-> None:
             WHEN t.TRANSACTION_ID % 5  = 3 THEN 'consumable'
             ELSE 'other'
         END
-        return t.KIND_OF_PRODUCT
+        RETURN 'ok' as result
         """
         
-        self.free_query(query)
+        self.free_query_single(query)
         
     def extend_neo_with_feeling_of_security(self)-> None:
         """ Extend the logical model that you have stored in the NOSQL database by introducing the following information:
@@ -847,26 +837,28 @@ def extend_neo(self)-> None:
                     The values can be chosen randomly.
         """
         query: te.LiteralString = """
-        MATCH ()-[tt:Transaction]-()
+        MATCH ()-[tt:Transaction]->()
         WITH distinct tt as t
         SET t.FEELING_OF_SECURITY = toInteger(rand() * 5) + 1
+        RETURN 'ok' as result
         """
         
-        self.free_query(query)
-
+        self.free_query_single(query)
     def connect_buying_friends(self)-> None:
         """ Connect customers that make more than three transactions from the same terminal expressing a similar average feeling of security as "buying_friends".
-        """
+        # """
         query: te.LiteralString = """
-        MATCH (c1:Customer)-[tc1:Transaction]->(terminal:Terminal)<-[tc2:Transaction]-(c2:Customer)
-        WHERE c1.CUSTOMER_ID <> c2.CUSTOMER_ID 
-        WITH terminal.TERMINAL_ID AS terminal_id, count(distinct tc1) as tnc1_num, c1, count(distinct tc2) as tnc2_num, c2, 
-            AVG(tc1.FEELING_OF_SECURITY) AS tc1_avg_fos, AVG(tc2.FEELING_OF_SECURITY) AS tc2_avg_fos
-        WHERE tnc1_num > 3 and tnc2_num > 3 AND abs(tc1_avg_fos - tc2_avg_fos) < 1
-        CREATE (c1)-[:BUYING_FRIEND]->(c2)
+        MATCH (c1:Customer)-[tc1:Transaction]->(terminal:Terminal)
+        WITH c1, terminal, COUNT(tc1) AS tc1_num, AVG(tc1.FEELING_OF_SECURITY) AS tc1_avg_fos
+        WHERE tc1_num > 3
+        MATCH (terminal)<-[tc2:Transaction]-(c2:Customer)
+        WHERE c1.CUSTOMER_ID <> c2.CUSTOMER_ID
+        WITH c1, c2, tc1_avg_fos, AVG(tc2.FEELING_OF_SECURITY) AS tc2_avg_fos
+        WHERE ABS(tc1_avg_fos - tc2_avg_fos) < 1
+        MERGE (c1)-[:BUYING_FRIEND]->(c2)
+        RETURN 'ok' as result
         """
-        
-        self.free_query(query)
+        self.free_query_single(query)
 ```
 
 ### Operation e:
@@ -881,7 +873,7 @@ I have divided this operation in two distinct methods and I also extend the meth
 `transactions_per_period` retrieves all the fraudulent transactions happened in a period, divided into the different values of period of the day. The identification of fraudulent transactions leverages the `TX_FRAUD` property. This approach avoids the computation of the operation **b** that would cost a lot of performance and vary by the considered period.
 
 ```python
- def get_transactions_per_period(self, dt_start: date, dt_end: date)-> DataFrame:
+def get_transactions_per_period(self, dt_start: date, dt_end: date)-> DataFrame:
         """ Get the transactions that occurred in each period of the day
             
             Args:
@@ -892,11 +884,11 @@ I have divided this operation in two distinct methods and I also extend the meth
                 A dataframe representing the transactions that occurred in each period of the day
         """
         query = f"""
-        MATCH ()-[t:Transaction]-()
+        MATCH ()-[t:Transaction]->()
         WHERE 
-        datetime(t.TX_DATETIME) >= datetime({{epochMillis: apoc.date.parse('{dt_start}', 'ms', 'yyyy-MM-dd HH:mm:ss')}})
+        t.TX_DATETIME >= datetime({{epochMillis: apoc.date.parse('{dt_start}', 'ms', 'yyyy-MM-dd HH:mm:ss')}})
         AND 
-        datetime(t.TX_DATETIME) <= datetime({{epochMillis: apoc.date.parse('{dt_end}', 'ms', 'yyyy-MM-dd HH:mm:ss')}})
+        t.TX_DATETIME <= datetime({{epochMillis: apoc.date.parse('{dt_end}', 'ms', 'yyyy-MM-dd HH:mm:ss')}})
         RETURN t.PERIOD_OF_DAY, collect(t) as transactions_per_period
         """
 
@@ -922,11 +914,11 @@ I have divided this operation in two distinct methods and I also extend the meth
                 A dataframe representing the fraudulent transactions that occurred in each period of the day and the average number of transactions
         """
         query = f"""
-        MATCH ()-[t:Transaction]-()
+        MATCH ()-[t:Transaction]->()
         WHERE 
-        datetime(t.TX_DATETIME) >= datetime({{epochMillis: apoc.date.parse('{dt_start}', 'ms', 'yyyy-MM-dd HH:mm:ss')}}) 
+        t.TX_DATETIME >= datetime({{epochMillis: apoc.date.parse('{dt_start}', 'ms', 'yyyy-MM-dd HH:mm:ss')}}) 
         AND 
-        datetime(t.TX_DATETIME) <= datetime({{epochMillis: apoc.date.parse('{dt_end}', 'ms', 'yyyy-MM-dd HH:mm:ss')}})
+        t.TX_DATETIME <= datetime({{epochMillis: apoc.date.parse('{dt_end}', 'ms', 'yyyy-MM-dd HH:mm:ss')}})
         AND t.TX_FRAUD = true
         WITH t.PERIOD_OF_DAY as period_of_day, collect(t) as fraudulent_transactions, count(t) as tn_per_period_of_the_day
         RETURN period_of_day, fraudulent_transactions, avg(tn_per_period_of_the_day) as average_number_of_transactions
@@ -942,7 +934,6 @@ I have divided this operation in two distinct methods and I also extend the meth
 
         result = self.free_query(neo4j_query, directToDF=True)
         return result
-
 ```
 
 ## Performances:
@@ -990,6 +981,70 @@ Again, indexing will be crucial even on this operation, especially on:
 
 - `TX_DATETIME` to ensure efficient filtering by date
 - `TX_FRAUD` to easily find the fraudulent transactions
+
+### Temporal performances:
+
+I ran Neo4j Desktop on a Desktop Pc with the following specifications and with **10gb** of maximum heap size:
+
+ - **Processor** 13th Gen Intel(R) Core(TM) i5-13600KF, 3500 Mhz, 14 Core(s), 20 Logical Processor(s)
+ - **Motherboard**  MSI PRO Z790-P WIFI (MS-7E06)
+ - **RAM** Kingston FURY Beast DDR5 16GB (2x8GB) 6000MT/s DDR5
+ - **GPU** Intel Arc A750 8Go
+ - **OS** Windows 11 Pro
+ - **Ne4j Desktop** Version 1.6.0
+ - **Neo** Neo4j 5.12.0
+
+For the **200mb** dataset I have also utilized three simple indexes:
+
+```CQL
+CREATE INDEX CustomerIDIndex 
+FOR (n:Customer)
+ON (n.CUSTOMER_ID);
+CREATE INDEX TerminalIDIndex 
+FOR (n:Terminal)
+ON (n.TERMINAL_ID)
+CREATE INDEX composite_rel_index_id_tn
+FOR () -[t:Transaction]-> () 
+ON t.TERMINAL_ID
+```
+
+#### 50mb dataset:
+
+| Method                                      | Time in seconds               |
+| ------------------------------------------- | ----------------------------- |
+| get_customer_under_average_with_properties: | 2.6707282066345215            |
+| get_customer_under_average:                 | 0.773576021194458             |
+| get_fraudolent_transactions:                | 0.594839334487915             |
+| get_co_customer_relationships_of_degree_k:  | 32.091564655303955// degree 2 |
+| extend_neo:                                 | 27.817413330078125            |
+| get_transactions_per_period:                | 6.169000864028931             |
+| get_fraudolent_transactions_per_period:     | 15.216424226760864            |
+
+#### 100mb dataset:
+
+| Method                                      | Time in seconds                |
+| ------------------------------------------- | ------------------------------ |
+| get_customer_under_average_with_properties: | 4.693260669708252              |
+| get_customer_under_average:                 | 2.5752010345458984             |
+| get_fraudolent_transactions:                | 0.68825416564941406            |
+| get_co_customer_relationships_of_degree_k:  | 163.46874618530273 // degree 2 |
+| extend_neo:                                 | 196.86835265159607             |
+| get_transactions_per_period:                | 23.873045501708984             |
+| get_fraudolent_transactions_per_period:     | 49.841728925704956             |
+
+#### 200mb dataset:
+
+| Method                                      | Time in seconds    |
+| ------------------------------------------- | ------------------ |
+| get_customer_under_average_with_properties: | 124.75377297401428 |
+| get_customer_under_average:                 | 172.66146874427795 |
+| get_fraudolent_transactions:                |                    |
+| get_co_customer_relationships_of_degree_k:  |                    |
+| extend_neo:                                 |                    |
+| get_transactions_per_period:                |                    |
+| get_fraudolent_transactions_per_period:     |                    |
+
+
 
 ### Other consideration about improving performance:
 
@@ -1062,7 +1117,7 @@ APOC (specifically in its full version) offers procedures to execute Cypher frag
 ## Notes:
 
 - All the code showed in this document can be see in [this repository](https://github.com/roccobalocco/NewDBMSProject) or in the `zip` attached within this file.
-- For the realization of the project I used the free tier of Neo4j and, in the last stages, Neo4j desktop.
+- For the realization of the project I used the free tier of Neo4j and, in the latest stages, Neo4j desktop.
 - For the diagrams I used [draw.io](https://www.drawio.com/) and [Star UML](https://www.staruml.io).
 - I tried to specify as many types as possible even if I am using python, to have better readability and code awareness (and also, I do not like untyped languages).
 - The consideration of batch processing, query tuning, and parallel execution using APOC were given to specify how this project can be evolved. 

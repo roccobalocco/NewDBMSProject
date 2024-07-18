@@ -1,4 +1,4 @@
-import neo
+import time
 from neo4j import GraphDatabase, Query
 import os
 from datetime import date, datetime
@@ -173,9 +173,9 @@ class Neo:
         # Define the query text
         query = f"""
         MATCH (c:Customer)  -[t:Transaction]-> (:Terminal)
-        WHERE datetime(t.TX_DATETIME) >= '{dt_start}' 
+        WHERE t.TX_DATETIME >= '{dt_start}' 
         AND 
-        datetime(t.TX_DATETIME) <= '{dt_end}'
+        t.TX_DATETIME <= '{dt_end}'
         WITH c, AVG(t.TX_AMOUNT) as avg_amount, COUNT(t) as nb_tx
         WHERE avg_amount < {avg_spending_amount} AND nb_tx < {avg_spending_frequency}
         RETURN collect(c) as customers
@@ -204,13 +204,13 @@ class Neo:
         query = f"""
         MATCH ()-[t:Transaction]->(:Terminal)
         WHERE 
-            datetime(t.TX_DATETIME).month >= {dt_start.month} 
+            t.TX_DATETIME.month >= {dt_start.month} 
             AND 
-            datetime(t.TX_DATETIME).day >= {dt_start.day}
+            t.TX_DATETIME.day >= {dt_start.day}
             AND 
-            datetime(t.TX_DATETIME).month <= {dt_end.month} 
+            t.TX_DATETIME.month <= {dt_end.month} 
             AND
-            datetime(t.TX_DATETIME).day <= {dt_end.day}
+            t.TX_DATETIME.day <= {dt_end.day}
         RETURN AVG(t.TX_AMOUNT) as avg_spending_amount
         """
 
@@ -239,17 +239,17 @@ class Neo:
         query = f"""
         MATCH (c:Customer)-[t:Transaction]->(:Terminal)
         WHERE
-        datetime(t.TX_DATETIME).month >= {dt_start.month}
+        t.TX_DATETIME.month >= {dt_start.month}
         AND 
-        datetime(t.TX_DATETIME).day >= {dt_start.day}
+        t.TX_DATETIME.day >= {dt_start.day}
         AND 
-        datetime(t.TX_DATETIME).month <= {dt_end.month}
+        t.TX_DATETIME.month <= {dt_end.month}
         AND 
-        datetime(t.TX_DATETIME).day <= {dt_end.day}
+        t.TX_DATETIME.day <= {dt_end.day}
         WITH COUNT(t) as transaction_number, COUNT(DISTINCT c) as customer_number
+        WHERE customer_number > 0
         RETURN transaction_number*1.0/customer_number as avg_spending_frequency
         """
-
 
         # Define metadata if any (this is optional)
         metadata = {
@@ -306,9 +306,9 @@ class Neo:
         query = f"""
         MATCH (t:Terminal {{TERMINAL_ID: {terminal_id}}}) <-[tr:Transaction]- (:Customer)
         WHERE 
-        datetime(tr.TX_DATETIME) >= datetime({{epochMillis: apoc.date.parse('{dt_start}', 'ms', 'yyyy-MM-dd HH:mm:ss')}})
+        tr.TX_DATETIME >= datetime({{epochMillis: apoc.date.parse('{dt_start}', 'ms', 'yyyy-MM-dd HH:mm:ss')}})
         AND 
-        datetime(tr.TX_DATETIME) <= datetime({{epochMillis: apoc.date.parse('{dt_end}', 'ms', 'yyyy-MM-dd HH:mm:ss')}})
+        tr.TX_DATETIME <= datetime({{epochMillis: apoc.date.parse('{dt_end}', 'ms', 'yyyy-MM-dd HH:mm:ss')}})
         RETURN MAX(tr.TX_AMOUNT) as max_import
         """
         
@@ -378,7 +378,7 @@ class Neo:
                 - The period of the day {morning, afternoon, evening, night} in which the transaction has been executed.
         """
         query: te.LiteralString = """
-        MATCH ()-[t:Transaction]-()
+        MATCH ()-[t:Transaction]->()
         WITH distinct t as single_t
         SET single_t.PERIOD_OF_DAY = CASE
             WHEN single_t.TX_DATETIME.hour >= 6 AND single_t.TX_DATETIME.hour < 12 THEN 'morning'
@@ -386,17 +386,17 @@ class Neo:
             WHEN single_t.TX_DATETIME.hour >= 12 AND single_t.TX_DATETIME.hour < 18 THEN 'afternoon'
             ELSE 'night'
         END
+        RETURN 'ok' as result
         """
         
-        self.free_query(query)
-
+        self.free_query_single(query)
     def extend_neo_with_kind_of_product(self)-> None:
         """ Extend the logical model that you have stored in the NOSQL database by introducing the following information:
             Each transaction should be extended with:
                 - The kind of products that have been bought through the transaction {high-tech, food, clothing, consumable, other}
         """
         query: te.LiteralString = """
-        MATCH ()-[tt:Transaction]-()
+        MATCH ()-[tt:Transaction]->()
         WITH distinct tt as t
         SET t.KIND_OF_PRODUCT = CASE
             WHEN t.TRANSACTION_ID % 5  = 0 THEN 'high-tech'
@@ -405,10 +405,10 @@ class Neo:
             WHEN t.TRANSACTION_ID % 5  = 3 THEN 'consumable'
             ELSE 'other'
         END
-        return t.KIND_OF_PRODUCT
+        RETURN 'ok' as result
         """
         
-        self.free_query(query)
+        self.free_query_single(query)
         
     def extend_neo_with_feeling_of_security(self)-> None:
         """ Extend the logical model that you have stored in the NOSQL database by introducing the following information:
@@ -417,26 +417,28 @@ class Neo:
                     The values can be chosen randomly.
         """
         query: te.LiteralString = """
-        MATCH ()-[tt:Transaction]-()
+        MATCH ()-[tt:Transaction]->()
         WITH distinct tt as t
         SET t.FEELING_OF_SECURITY = toInteger(rand() * 5) + 1
+        RETURN 'ok' as result
         """
         
-        self.free_query(query)
-
+        self.free_query_single(query)
     def connect_buying_friends(self)-> None:
         """ Connect customers that make more than three transactions from the same terminal expressing a similar average feeling of security as "buying_friends".
-        """
+        # """
         query: te.LiteralString = """
-        MATCH (c1:Customer)-[tc1:Transaction]->(terminal:Terminal)<-[tc2:Transaction]-(c2:Customer)
-        WHERE c1.CUSTOMER_ID <> c2.CUSTOMER_ID 
-        WITH terminal.TERMINAL_ID AS terminal_id, count(distinct tc1) as tnc1_num, c1, count(distinct tc2) as tnc2_num, c2, 
-            AVG(tc1.FEELING_OF_SECURITY) AS tc1_avg_fos, AVG(tc2.FEELING_OF_SECURITY) AS tc2_avg_fos
-        WHERE tnc1_num > 3 and tnc2_num > 3 AND abs(tc1_avg_fos - tc2_avg_fos) < 1
-        CREATE (c1)-[:BUYING_FRIEND]->(c2)
+        MATCH (c1:Customer)-[tc1:Transaction]->(terminal:Terminal)
+        WITH c1, terminal, COUNT(tc1) AS tc1_num, AVG(tc1.FEELING_OF_SECURITY) AS tc1_avg_fos
+        WHERE tc1_num > 3
+        MATCH (terminal)<-[tc2:Transaction]-(c2:Customer)
+        WHERE c1.CUSTOMER_ID <> c2.CUSTOMER_ID
+        WITH c1, c2, tc1_avg_fos, AVG(tc2.FEELING_OF_SECURITY) AS tc2_avg_fos
+        WHERE ABS(tc1_avg_fos - tc2_avg_fos) < 1
+        MERGE (c1)-[:BUYING_FRIEND]->(c2)
+        RETURN 'ok' as result
         """
-        
-        self.free_query(query)
+        self.free_query_single(query)
     # End of operations (d) functions
     
     # Start of operations (e) functions
@@ -453,9 +455,9 @@ class Neo:
         query = f"""
         MATCH ()-[t:Transaction]->()
         WHERE 
-        datetime(t.TX_DATETIME) >= datetime({{epochMillis: apoc.date.parse('{dt_start}', 'ms', 'yyyy-MM-dd HH:mm:ss')}})
+        t.TX_DATETIME >= datetime({{epochMillis: apoc.date.parse('{dt_start}', 'ms', 'yyyy-MM-dd HH:mm:ss')}})
         AND 
-        datetime(t.TX_DATETIME) <= datetime({{epochMillis: apoc.date.parse('{dt_end}', 'ms', 'yyyy-MM-dd HH:mm:ss')}})
+        t.TX_DATETIME <= datetime({{epochMillis: apoc.date.parse('{dt_end}', 'ms', 'yyyy-MM-dd HH:mm:ss')}})
         RETURN t.PERIOD_OF_DAY, collect(t) as transactions_per_period
         """
 
@@ -483,9 +485,9 @@ class Neo:
         query = f"""
         MATCH ()-[t:Transaction]->()
         WHERE 
-        datetime(t.TX_DATETIME) >= datetime({{epochMillis: apoc.date.parse('{dt_start}', 'ms', 'yyyy-MM-dd HH:mm:ss')}}) 
+        t.TX_DATETIME >= datetime({{epochMillis: apoc.date.parse('{dt_start}', 'ms', 'yyyy-MM-dd HH:mm:ss')}}) 
         AND 
-        datetime(t.TX_DATETIME) <= datetime({{epochMillis: apoc.date.parse('{dt_end}', 'ms', 'yyyy-MM-dd HH:mm:ss')}})
+        t.TX_DATETIME <= datetime({{epochMillis: apoc.date.parse('{dt_end}', 'ms', 'yyyy-MM-dd HH:mm:ss')}})
         AND t.TX_FRAUD = true
         WITH t.PERIOD_OF_DAY as period_of_day, collect(t) as fraudulent_transactions, count(t) as tn_per_period_of_the_day
         RETURN period_of_day, fraudulent_transactions, avg(tn_per_period_of_the_day) as average_number_of_transactions
@@ -508,33 +510,54 @@ if __name__ == "__main__":
         print('Start of execution')
 
         # Requested operation a
-        customers = greeter.get_customer_under_average_with_properties(datetime(2019, 1, 1), datetime(2019, 2, 1))
+        start = time.time()
+        customers = greeter.get_customer_under_average_with_properties(datetime(2018, 4, 1), datetime(2018, 5, 1))
         customers.to_csv('./get_customer_under_average_with_properties.csv', sep=';', encoding='utf-8')
+        end = time.time()
+        print('get_customer_under_average_with_properties: {0}'.format(end - start))
         # This query shows nothing as a result, but don't worry and have a look at the db
         # There are a lot of costumer with small transactions number but large spending amount and viceversa, so....
         # Another intepretation of Operation a, computing the means for each customers in that period
-        customers = greeter.get_customer_under_average(datetime(2019, 1, 1), datetime(2019, 2, 1))
+        start = time.time()
+        customers = greeter.get_customer_under_average(datetime(2018, 4, 1), datetime(2018, 5, 1))
         customers.to_csv('./get_customer_under_average.csv', sep=';', encoding='utf-8')
+        end = time.time()
+        print('get_customer_under_average: {0}'.format(end - start))
         
         # This query shows fraudolent transaction on the terminal 10 in the period between 2019-01-01 and 2019-02-01!
         # and them are marked as fraudolent in the field of the relationship
-        fraudulent_tns = greeter.get_fraudolent_transactions("10",datetime(2019, 1, 1), datetime(2019, 2, 1))
+        start = time.time()
+        fraudulent_tns = greeter.get_fraudolent_transactions("10",datetime(2018, 4, 1), datetime(2019, 5, 1))
         fraudulent_tns.to_csv('./get_fraudolent_transactions.csv', sep=';', encoding='utf-8')
+        end = time.time()
+        print('get_fraudolent_transactions: {0}'.format(end - start))
         
         # This query shows up the co-customer-relationships of degree 2 for the user 63
+        start = time.time()
         co_customers = greeter.get_co_customer_relationships_of_degree_k(63, 2)
         co_customers.to_csv('./get_co_customer_relationships_of_degree_k.csv', sep=';', encoding='utf-8')
+        end = time.time()
+        print('get_co_customer_relationships_of_degree_k: {0}'.format(end - start))
 
-        # This query extends the db with the period of the day, the kind of product and the feeling of security with the customer friends relationship
+        This query extends the db with the period of the day, the kind of product and the feeling of security with the customer friends relationship
+        start = time.time()
         greeter.extend_neo()
+        end = time.time()
+        print('extend_neo: {0}'.format(end - start))
 
-        # This query shows the transactions per period of the day in a given period of time
+        # This query shows the transactions per periocall apoc.periodic.iterate("MATCH p=()-[r]->() RETURN r,p LIMIT 5000000;","DELETE r;", {batchSize:10000, parallel: true}); call apoc.periodic.iterate("MATCH (d) return d LIMIT 5000000;","DELETE d;", {batchSize:10000, parallel: true}); d of the day in a given period of time
+        start = time.time()
         tns = greeter.get_transactions_per_period(datetime(2019, 1, 1), datetime(2024, 2, 1))
         tns.to_csv('./get_transactions_per_period.csv', sep=';', encoding='utf-8')
+        end = time.time()
+        print('get_transactions_per_period: {0}'.format(end - start))
 
         # This query shows the fraudolent transactions per period of the day in a given period of time
-        ftns = greeter.get_fraudolent_transactions_per_period(datetime(2019, 1, 1), datetime(2024, 2, 1))
+        start = time.time()
+        ftns = greeter.get_fraudolent_transactions_per_period(datetime(2018, 1, 1), datetime(2024, 2, 1))
         ftns.to_csv('./get_fraudolent_transactions_per_period.csv', sep=';', encoding='utf-8')
+        end = time.time()
+        print('get_fraudolent_transactions_per_period: {0}'.format(end - start))
 
         print('End of execution')
     except Exception as e:
