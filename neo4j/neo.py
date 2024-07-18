@@ -539,7 +539,7 @@ if __name__ == "__main__":
         end = time.time()
         print('get_co_customer_relationships_of_degree_k: {0}'.format(end - start))
 
-        This query extends the db with the period of the day, the kind of product and the feeling of security with the customer friends relationship
+        #This query extends the db with the period of the day, the kind of product and the feeling of security with the customer friends relationship
         start = time.time()
         greeter.extend_neo()
         end = time.time()

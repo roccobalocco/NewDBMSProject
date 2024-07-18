@@ -143,7 +143,6 @@ def file_opener(file_name):
     """
     with open(file_name, 'r') as file:
         try:
-            #lines = file.readlines()[1:13183738]  # Discard the first line (header) and limit the number of lines
             threadNum = 2000
             lines = file.readlines()[1:]
             lineCount = len(lines)
@@ -154,12 +153,12 @@ def file_opener(file_name):
             list_splitter = [i * rowPerThread for i in range(1, threadNum)]
             threads = []
 
-            for i in range (1, threadNum):
+            for i in range (1, threadNum-1):
                 # To save on the db really slow
                 # thread = threading.Thread(target=relationship_creator, args=(lines[list_splitter[i-1]:list_splitter[i]],i,))
                 # To save into cql files using threads
                 thread = threading.Thread(target=relationship_saver, args=(lines[list_splitter[i-1]:list_splitter[i]],i,))
-                
+            
                 threads.append(thread)
                 thread.start()
 
@@ -170,13 +169,13 @@ def file_opener(file_name):
             # To merge all the generated files into a single one
             # file_merger('.cql')
             # To execute the multiple statements from the file in a single query with a number of threads that reflects the number of files
-            for i in range (1, threadNum):
+            for i in range (925, threadNum-1):
                 arg = f'../simulated-data-raw-200mb/transactionsThread{i}.cql'
                 thread = threading.Thread(target=run_many, args=(arg,))
                 threads.append(thread)
                 thread.start()
                 #time.sleep(1) # for 100mb
-                time.sleep(40) # for 200mb due to heapsize or free tier limitations (if you are using it)
+                time.sleep(25) # for 200mb due to heapsize or free tier limitations (if you are using it)
 
             for thread in threads:
                 thread.join()
