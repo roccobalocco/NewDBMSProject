@@ -20,7 +20,7 @@ The conceptual model is straightforward; it lists the three entities as they app
 
 A **Customer** can make many **Transactions**, and each **Transaction** refers to one **Terminal**.
 
-![image-20240704144009187](/home/pietro/.var/app/io.typora.Typora/config/Typora/typora-user-images/image-20240704144009187.png)
+![image-20240718212047367](./assets/image-20240718212047367.png)
 
 ### Logical Model:
 
