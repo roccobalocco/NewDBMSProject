@@ -71,7 +71,7 @@ def relationship_saver(rel_lines:list[str],i:int):
     
     for line in rel_lines:
         columns = line.split(',')
-        statements += f"""MERGE (cc:Customer {{CUSTOMER_ID: {columns[2]}}}) MERGE (tt:Terminal {{TERMINAL_ID: {columns[3]}}}) MERGE (cc)-[tr:Transaction {{TRANSACTION_ID: {columns[0]}}}]->(tt) ON CREATE SET tr.TRANSACTION_ID = {columns[0]}, tr.TX_DATETIME = datetime({{epochMillis: apoc.date.parse('{columns[1]}', 'ms', 'yyyy-MM-dd HH:mm:ss')}}), tr.TX_AMOUNT = toFloat({columns[4]}), tr.TX_TIME_SECONDS = {columns[5]}, tr.TX_TIME_DAYS = {columns[6]},tr.TX_FRAUD = toBoolean({columns[7]}),tr.TX_FRAUD_SCENARIO = {columns[8]} RETURN 'ok';
+        statements += f"""MERGE (cc:Customer {{CUSTOMER_ID: {columns[2]}}})-[tr:Transaction {{TRANSACTION_ID: {columns[0]}}}]->(tt:Terminal {{TERMINAL_ID: {columns[3]}}}) ON CREATE SET tr.TRANSACTION_ID = {columns[0]}, tr.TX_DATETIME = datetime({{epochMillis: apoc.date.parse('{columns[1]}', 'ms', 'yyyy-MM-dd HH:mm:ss')}}), tr.TX_AMOUNT = toFloat({columns[4]}), tr.TX_TIME_SECONDS = {columns[5]}, tr.TX_TIME_DAYS = {columns[6]},tr.TX_FRAUD = toBoolean({columns[7]}),tr.TX_FRAUD_SCENARIO = {columns[8]} RETURN 'ok';
         """
     file_path = f"../simulated-data-raw-200mb/transactionsThread{i}.cql"
     # Open the file in write mode
@@ -170,13 +170,13 @@ def file_opener(file_name):
             # To merge all the generated files into a single one
             # file_merger('.cql')
             # To execute the multiple statements from the file in a single query with a number of threads that reflects the number of files
-            for i in range (781, threadNum):
+            for i in range (1, threadNum):
                 arg = f'../simulated-data-raw-200mb/transactionsThread{i}.cql'
                 thread = threading.Thread(target=run_many, args=(arg,))
                 threads.append(thread)
                 thread.start()
                 #time.sleep(1) # for 100mb
-                time.sleep(25) # for 200mb due to heapsize or free tier limitations (if you are using it)
+                time.sleep(40) # for 200mb due to heapsize or free tier limitations (if you are using it)
 
             for thread in threads:
                 thread.join()
